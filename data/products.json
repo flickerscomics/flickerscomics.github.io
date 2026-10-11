@@ -1,3 +1,5 @@
 [
- {"id":"the-amazing-spooder-man-1001","cat":"issues","title":"The Amazing Spooder-Man","num":"1001","publisher":"Wonder Comics","price":499,"stock":21,"blurb":"","badges":["new"],"image":"assets/covers/cover-mv41snm51.jpg"}
+ {"id":"z-men-39","cat":"issues","title":"Z-Men","num":"#39","publisher":"Wonder Comics","price":399,"stock":1,"blurb":"While the Z-Men do battle in Philadelphia, enemies put their sights on the Z-Men's home base — the Factory, in Alaska! But the Factory is not undefended... and JOHN GREYCROW is an army unto himself!","badges":["new"],"image":"assets/covers/cover-mv41yi7y4.jpg"},
+ {"id":"trans-foamers-37","cat":"issues","title":"Trans-Foamers","num":"#37","publisher":"Imagine Comics","price":399,"stock":1,"blurb":"THE PRICE OF BEING PRIME! How far will Elita Prime go to win the war on Cybertronica?","badges":["new"],"image":"assets/covers/cover-mv41vlob3.jpg"},
+ {"id":"the-amazing-spooder-man-1001","cat":"issues","title":"The Amazing Spooder-Man","num":"#1001","publisher":"Wonder Comics","price":499,"stock":21,"blurb":"AFTERMATH FROM ISSUE #1000! Spooder-Man goes to battle against Ravage — and Aunt March is caught in the middle — but has Spoodey already lost the war?","badges":["new"],"image":"assets/covers/cover-mv41snm51.jpg"}
 ]
