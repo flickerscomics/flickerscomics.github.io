@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import { searchItems, wordsOf, norm, seriesKey } from "../src/shared.mjs";
 
-const products = JSON.parse(fs.readFileSync(new URL("../data/products.json", import.meta.url), "utf8"));
+const products = JSON.parse(fs.readFileSync(new URL("./fixtures/products.json", import.meta.url), "utf8"));
 const items = products.map(p => ({ p, words: wordsOf([p.title, p.num, p.vol, p.subtitle, p.variant, p.publisher].join(" ")), blurb: norm(p.blurb) }));
 const find = q => { const r = searchItems(items, q); return { mode: r.mode, hits: items.filter((_, i) => r.flags[i]).map(x => x.p) }; };
 
