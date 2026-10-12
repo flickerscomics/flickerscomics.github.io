@@ -326,7 +326,7 @@ function renderSummary() {
   $("sumTotal").textContent = money(t.total);
   $("footTotal").textContent = money(t.total);
   $("payBtn").textContent = CONFIG.testMode ? "Place test order" : CONFIG.payOnline ? `Pay ${money(t.total)} with Fleeca` : "Place order";
-  $("payHint").textContent = CONFIG.testMode ? "Test mode: nothing is charged" : CONFIG.payOnline ? "You'll go to Fleeca to pay from your bank account" : "The shop gets your order straight away.";
+  $("payHint").textContent = CONFIG.testMode ? "Test mode: nothing is charged" : CONFIG.payOnline ? "You'll go to Fleeca to pay. Log in to Fleeca banking first, and pay from the account you want to use." : "The shop gets your order straight away.";
 }
 function syncMethod() {
   const post = getMethod() === "post";
@@ -501,7 +501,9 @@ function resetCheckout() {
   $("coDoneView").innerHTML = "";
 }
 function handlePaymentReturn() {
-  // Live mode only: the order service sends shoppers back to  ?order=FC-1234&status=paid  (or failed).
+  // Live mode only: the order service sends shoppers back to  ?order=FC-1234&status=paid  (or failed, or pending while Fleeca confirms).
+  const unknown = takeParam("payment");
+  if (unknown === "unknown") { toast("We couldn't find that payment. If you paid, check Track order with your order number and phone."); return; }
   const id = takeParam("order"), status = takeParam("status");
   if (!id || !status) return;
   const pending = store.get("flickers-pending-order", null);
@@ -510,6 +512,10 @@ function handlePaymentReturn() {
     store.set("flickers-pending-order", null);
     co.showModal();
     showDone({ ...pending, test: false, paid: true });
+  } else if (status === "pending") {
+    // The order is placed and its comics are held; Fleeca just hasn't confirmed yet. Don't tell a paying customer it failed.
+    if (pending && pending.id === id) { cart = {}; saveCart(); renderCartUI(); store.set("flickers-pending-order", null); }
+    toast(`We're confirming your payment with Fleeca. Check Track order in a minute with order number ${id}.`);
   } else if (status !== "paid") {
     toast("Your payment didn't go through, so nothing was charged. Your cart is still here.");
   }

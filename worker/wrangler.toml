@@ -12,8 +12,16 @@ ALLOWED_ORIGINS = "https://flickerscomics.github.io"
 SITE_URL = "https://flickerscomics.github.io"
 # Public order endpoint. Keep "false" until the shop is ready to take real orders (docs/DISCORD.md).
 ORDERS_ENABLED = "true"
+# Fleeca online payments (docs/FLEECA.md). Needs the secret FLEECA_API_KEY. Keep "false" until the Merchant Center addresses are set.
+FLEECA_PAYMENTS = "false"
+# 0 = sandbox (nothing is charged), 1 = live
+FLEECA_MODE = "0"
 # Optional: the id of a Discord role to ping on every new order.
 # DISCORD_PING_ROLE = "123456789012345678"
+
+# Every 15 minutes: cancel online orders still unpaid after 30 minutes and put their comics back.
+[triggers]
+crons = ["*/15 * * * *"]
 
 # Create the namespace with:  npx wrangler kv namespace create USERS
 # then paste the id it prints below.
@@ -26,3 +34,4 @@ id = "e2534491249a49fe83ca2dd0db40ed25"
 #   SETUP_KEY        a one-time key used to create the first owner account
 #   GITHUB_TOKEN     fine-grained GitHub token: this repo only, Contents: read and write
 #   DISCORD_WEBHOOK_URL  the Discord channel webhook for order messages
+#   FLEECA_API_KEY   the Fleeca merchant API key (only needed for online payments)

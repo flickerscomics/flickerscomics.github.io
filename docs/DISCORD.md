@@ -55,8 +55,8 @@ Then checkout says **Place order** (not "Place test order"), the shop gets every
 confirmation page tells the customer "The shop has your order." To switch back, reverse both changes.
 
 Until Fleeca is connected, orders are logged as **Payment pending**: the shop and customer sort out payment themselves.
-When Fleeca is ready, set `"payOnline": true` and the checkout button changes to "Pay with Fleeca" (that part still needs
-the payment link built into the Worker).
+With Fleeca payments on (`docs/SETUP.md` → Online payment), a customer's order is **not posted here until it's paid**. The post then says
+"Paid via Fleeca by <name>". Staff also get a message here if a payment looks wrong (wrong amount or mode) or arrives for a comic that has since sold.
 
 ## Posting commits to a channel
 

@@ -64,8 +64,20 @@ Opening hours, postage and the time zone used for the "Open now" badge are in `d
 
 Online ordering is on (`testMode: false` in `data/config.json`, `ORDERS_ENABLED = "true"` in `worker/wrangler.toml`).
 Every order is re-priced from the real catalog by the staff service, saved (staff area → **Orders**), and logged to a
-Discord channel. Payment isn't online yet: orders are "payment pending" and the shop settles up with
-the customer. Fleeca payment is a later step (`payOnline`). See `docs/DISCORD.md` to reconnect Discord or switch ordering off.
+Discord channel. Until online payment is switched on, orders are "payment pending" and the shop settles up with
+the customer. Online payment through Fleeca (GTA World's bank) is built and switched off: see **Online payment with Fleeca** below
+and `docs/FLEECA.md`. See `docs/DISCORD.md` to reconnect Discord or switch ordering off.
+
+### Online payment with Fleeca
+
+With it on, a customer order is saved and its comics held, then the customer is sent to Fleeca to pay. The order only reaches Discord
+(and the sales report) once Fleeca confirms the payment. Fleeca tells the Worker with a signed webhook (`POST /fleeca/callback`) and sends the
+customer's browser back to `GET /fleeca/return`, which sends them on to the shop (`/?order=FC-XXXXXX&status=paid|failed|pending`). Nothing the
+browser says is trusted. Orders unpaid after 30 minutes are cancelled and their comics put back (a cron runs every 15 minutes). Orders staff key in
+themselves never go through Fleeca. If a customer pays after their order was cancelled, the order is reopened if the comics are still there, otherwise
+staff are told in Discord to refund them. Refunds are done by hand; the Worker never sends money (`/v2/transfers` is not used).
+
+To turn it on, see **Online payment** in `docs/SETUP.md`. Everything works as before while it is off or the key isn't set.
 
 **Shareable carts:** the cart has a "Copy a link to this cart" button. Opening such a link (`/?cart=batman-14:2,flash-3:1`, comic id
 and quantity) adds those comics to the visitor's own cart, skipping anything sold out. Handy for setting a stack aside for a customer

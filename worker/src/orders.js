@@ -19,9 +19,11 @@ import { escMd, cut, pingRole, webhook } from "./discord.js";
 import { announceRestocks } from "./wants.js";
 import { announceLowStock } from "./alerts.js";
 import { recordSale } from "./sales.js";
+import { payOn, fleecaMode, createPayment, unavailable, FleecaError } from "./fleeca.js";
 import { fullTitle, money, hoursText, dealDiscount, dealName } from "../../src/shared.mjs";
 
 const ORDER_TTL = 90 * 24 * 3600;
+const PAY_TTL = 7 * 24 * 3600;
 const ARCHIVE_TTL = 14 * 24 * 3600;
 const ID_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // no 0/O/1/I, 32 symbols so the byte mapping is unbiased
 const ORDER_ID_RE = /^FC-[A-Z2-9]{6}$/;
@@ -39,10 +41,10 @@ function newOrderId() {
 const STATUSES = ["new", "ready", "done", "cancelled"];
 export const orderStatus = o => o.status || "new";
 const statusName = o => ({ new: "New", ready: "Ready", done: o.method === "post" ? "Posted" : "Collected", cancelled: "Cancelled" })[orderStatus(o)] || "New";
-const isFinished = o => orderStatus(o) === "done" || orderStatus(o) === "cancelled";
+export const isFinished = o => orderStatus(o) === "done" || orderStatus(o) === "cancelled";
 
 /* When an order will be deleted: 14 days after it finished, and never later than 90 days after it was placed. */
-function ttlSeconds(o) {
+export function ttlSeconds(o) {
   const since = iso => (Date.now() - Date.parse(iso)) / 1000;
   let ttl = ORDER_TTL - since(o.placedAt);
   if (o.completedAt) ttl = Math.min(ttl, ARCHIVE_TTL - since(o.completedAt));
@@ -128,7 +130,7 @@ export function orderEmbed(o, cfg = {}) {
   const fields = [
     { name: "Customer", value: cut(escMd(o.name), 200), inline: true },
     { name: "Phone", value: o.phone ? cut(escMd(o.phone), 100) : "—", inline: true },
-    { name: "Payment", value: o.paid ? "Paid" : "Not paid yet", inline: true },
+    { name: "Payment", value: o.paid ? (o.payment && o.payment.state === "paid" ? `Paid via Fleeca${o.payment.payerName ? " by " + cut(escMd(o.payment.payerName), 60) : ""}` : "Paid") : "Not paid yet", inline: true },
     collect
       ? { name: "Collect on", value: `${o.collectDate}${cfg.openHour != null ? ", " + hoursText(cfg) : ""}` }
       : { name: "Post to", value: cut(escMd(o.address), 1000) },
@@ -139,6 +141,7 @@ export function orderEmbed(o, cfg = {}) {
     { name: "Total", value: `**${money(o.total)}**`, inline: true }
   ];
   if (o.notes) fields.push({ name: "Notes", value: cut(escMd(o.notes), 1000) });
+  if (o.payment && o.payment.flag) fields.push({ name: "Check payment", value: cut(escMd(o.payment.flag), 500) });
   if (o.stock === "manual") fields.push({ name: "Stock", value: "Not updated automatically. Adjust it in the staff area." });
   if (o.stock === "restore-failed") fields.push({ name: "Stock", value: "Cancelled, but the stock wasn't put back. Add the comics back in the staff area." });
   return {
@@ -151,7 +154,7 @@ export function orderEmbed(o, cfg = {}) {
   };
 }
 
-async function postToDiscord(env, order, cfg) {
+export async function postToDiscord(env, order, cfg) {
   const role = pingRole(env);
   return webhook(env, {
     wait: true,
@@ -166,7 +169,7 @@ async function postToDiscord(env, order, cfg) {
   });
 }
 /* Rewrites the order's original Discord post (status, payment, colour) after staff change it. */
-const editDiscord = (env, order, cfg) => webhook(env, { method: "PATCH", messageId: order.discordId, payload: { embeds: [orderEmbed(order, cfg)], allowed_mentions: { parse: [] } } });
+export const editDiscord = (env, order, cfg) => webhook(env, { method: "PATCH", messageId: order.discordId, payload: { embeds: [orderEmbed(order, cfg)], allowed_mentions: { parse: [] } } });
 /* A short follow-up message, used when an order is ready, so staff are nudged to contact the customer. */
 function announceReady(env, o) {
   const role = pingRole(env), who = o.phone ? `${escMd(o.name)} on ${escMd(o.phone)}` : escMd(o.name);
@@ -175,7 +178,7 @@ function announceReady(env, o) {
 }
 
 /* ---------- storing and listing ---------- */
-const orderKey = o => `order:${String(9e15 - Date.parse(o.placedAt)).padStart(16, "0")}:${o.id}`; // newest sorts first
+export const orderKey = o => `order:${String(9e15 - Date.parse(o.placedAt)).padStart(16, "0")}:${o.id}`; // newest sorts first
 
 export async function placeOrder(env, raw, ip) {
   if (String(env.ORDERS_ENABLED) !== "true") throw bad(503, "Online ordering isn't open yet.");
@@ -188,6 +191,9 @@ export async function placeOrder(env, raw, ip) {
 
 /* An order keyed in by signed-in staff (counter or phone). Not rate limited, and it works even while online ordering is switched off. */
 export function staffOrder(env, raw, user) { return createOrder(env, raw, user); }
+
+/* Online orders paid through Fleeca wait for the payment before they reach Discord, count as a sale or raise a stock alert (payments.js). */
+export const isAwaiting = o => !!o.payment && o.payment.state === "awaiting";
 
 async function createOrder(env, raw, user = null) {
   let shop = await loadShop(env);
@@ -210,7 +216,12 @@ async function createOrder(env, raw, user = null) {
 
   const key = orderKey(order);
   await env.USERS.put(`oid:${order.id}`, key, { expirationTtl: ORDER_TTL }); // also how an order is found again
-  const record = { ...order, status: "new", discord: "pending" };
+  const online = !user && payOn(env) && order.total >= 1;
+  const record = { ...order, status: "new", discord: online ? "waiting for payment" : "pending" };
+  if (online) {
+    record.payment = { provider: "fleeca", state: "awaiting", mode: fleecaMode(env) };
+    if (shelf) record.lowAt = order.items.map(i => [i.id, (shelf.before.find(p => p.id === i.id) || {}).stock, (shelf.products.find(p => p.id === i.id) || {}).stock]);
+  }
   if (user) {
     const at = new Date().toISOString();
     Object.assign(record, { source: "staff", enteredBy: user.username, history: [{ at, by: user.username, change: "entered" }] });
@@ -221,6 +232,19 @@ async function createOrder(env, raw, user = null) {
     }
   }
   await env.USERS.put(key, JSON.stringify(record), { expirationTtl: ttlSeconds(record) }); // saved before Discord is tried
+  if (online) {
+    try {
+      const pay = await createPayment(env, { amount: order.total, description: `Flickers Comics order ${order.id}` });
+      record.payment.id = pay.id;
+      await env.USERS.put(`pay:${pay.id}`, key, { expirationTtl: PAY_TTL });
+      await env.USERS.put(`await:${order.id}`, "1", { expirationTtl: PAY_TTL, metadata: { p: Date.parse(order.placedAt) } }); // what the sweep looks through
+      await env.USERS.put(key, JSON.stringify(record), { expirationTtl: ttlSeconds(record) });
+      return { orderId: order.id, subtotal: order.subtotal, discount: order.discount || 0, postage: order.postage, total: order.total, paid: false, paymentUrl: pay.link };
+    } catch (e) {
+      await rollbackOrder(env, record, key); // no payment link, so no order: stock back, nothing posted
+      throw e instanceof FleecaError ? unavailable(e) : e;
+    }
+  }
   const sent = await postToDiscord(env, record, shop.config);
   record.discord = sent.ok ? "sent" : `failed: ${sent.reason}`;
   if (sent.id) record.discordId = sent.id;
@@ -231,6 +255,23 @@ async function createOrder(env, raw, user = null) {
   return { orderId: order.id, subtotal: order.subtotal, discount: order.discount || 0, postage: order.postage, total: order.total, paid: false };
 }
 
+/* An online order that never got a payment link: put the comics back and forget it. The customer was never told an order number. */
+async function rollbackOrder(env, record, key) {
+  if (record.stock === "held") {
+    try { await adjustStock(env, record.items.map(i => [i.id, i.qty]), `Order ${record.id} not placed: comics put back on the shelf`); }
+    catch (e) {
+      // Couldn't put them back: keep a cancelled record and tell staff, so the comics get added back by hand.
+      console.error("Couldn't restore stock after a failed payment link");
+      Object.assign(record, { status: "cancelled", completedAt: new Date().toISOString(), stock: "restore-failed", payment: { ...record.payment, state: "failed" } });
+      const sent = await postToDiscord(env, record, await shopConfig(env));
+      if (sent.id) record.discordId = sent.id;
+      await env.USERS.put(key, JSON.stringify(record), { expirationTtl: ttlSeconds(record) });
+      return;
+    }
+  }
+  await env.USERS.delete(key); await env.USERS.delete(`oid:${record.id}`);
+}
+
 /* One page of orders, newest first (the keys sort that way); `cursor` fetches the next page. Kept small because each read is a KV call
    and a Worker on the free plan may make only about 50 per request. */
 export async function listOrders(env, cursor) {
@@ -239,7 +280,7 @@ export async function listOrders(env, cursor) {
   return { orders: rows.filter(Boolean).map(raw => JSON.parse(raw)).filter(o => !expired(o)), cursor: page.list_complete ? null : page.cursor };
 }
 
-async function findOrderKey(env, id) {
+export async function findOrderKey(env, id) {
   const direct = await env.USERS.get(`oid:${id}`);
   if (direct && direct.startsWith("order:")) return direct;
   let cursor; // orders placed before the key was recorded
@@ -267,7 +308,7 @@ export async function lookupOrder(env, raw, ip) {
   const same = o && !expired(o) && digitsOf(o.phone) === digits;
   if (!same) throw bad(404, "We couldn't find an order with that number and phone number. Check them and try again."); // the same answer whether the number or the phone is wrong
   return {
-    id: o.id, state: orderStatus(o), statusLabel: statusName(o), method: o.method, collectDate: o.collectDate || null, paid: !!o.paid,
+    id: o.id, state: orderStatus(o), statusLabel: isAwaiting(o) ? "Awaiting payment" : statusName(o), method: o.method, collectDate: o.collectDate || null, paid: !!o.paid,
     total: o.total, discount: o.discount || 0, deal: o.deal || "", postage: o.postage, placedAt: o.placedAt, items: o.items.map(i => ({ title: i.title, qty: i.qty }))
   };
 }
@@ -287,6 +328,7 @@ export async function updateOrder(env, id, patch, user) {
   if (patch.status !== undefined && !STATUSES.includes(patch.status)) throw bad(400, "That isn't a valid status.");
   if (patch.paid !== undefined && typeof patch.paid !== "boolean") throw bad(400, "Paid must be yes or no.");
   const next = patch.status !== undefined ? patch.status : prev;
+  if (isAwaiting(o) && (next !== prev && next !== "cancelled" || patch.paid === true)) throw bad(409, "This order is waiting for the customer to pay on Fleeca. It's marked paid automatically when they do, or you can cancel it.");
   const statusChanged = next !== prev, paidChanged = patch.paid !== undefined && patch.paid !== !!o.paid;
   if (!statusChanged && !paidChanged) return { order: o, warnings: [] };
 
@@ -305,11 +347,12 @@ export async function updateOrder(env, id, patch, user) {
     o.status = next; changes.push(next);
     if (isFinished(o)) o.completedAt = new Date().toISOString(); else delete o.completedAt;
   }
+  if (statusChanged && next === "cancelled" && isAwaiting(o)) { o.payment = { ...o.payment, state: "cancelled" }; await env.USERS.delete(`await:${o.id}`); }
   if (paidChanged) { o.paid = patch.paid; changes.push(patch.paid ? "paid" : "unpaid"); }
 
   o.history = [...(o.history || []), ...changes.map(change => ({ at: new Date().toISOString(), by: user.username, change }))].slice(-30);
   await env.USERS.put(key, JSON.stringify(o), { expirationTtl: ttlSeconds(o) });
-  await recordSale(env, o).catch(() => {});
+  if (!o.payment || o.paid || o.payment.state === "paid") await recordSale(env, o).catch(() => {}); // an unpaid online order is no sale
 
   // keep the Discord post in step, and nudge staff when an order is ready
   let discord = "skipped";

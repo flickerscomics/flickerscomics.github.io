@@ -10,7 +10,7 @@ function slipHTML(o, cfg) {
   const rows = o.items.map(i => `<tr><td class="slip-box" aria-hidden="true">☐</td><td class="slip-qty">${i.qty} ×</td><td>${esc(i.title)}</td><td class="slip-price">${money(i.price * i.qty)}</td></tr>`).join("");
   const how = o.method === "post" ? `<b>POST</b> to:<br>${escLines(o.address)}` : `<b>COLLECT</b> ${esc(day(o.collectDate))}${cfg && cfg.openHour != null ? ` · open ${esc(hoursText(cfg))}` : ""}`;
   return `<article class="slip">
-    <header class="slip-head"><span class="slip-id">${esc(o.id)}</span><span class="slip-status">${esc(o.paid ? "PAID" : "NOT PAID")}</span></header>
+    <header class="slip-head"><span class="slip-id">${esc(o.id)}</span><span class="slip-status">${esc(o.paid ? "PAID" : o.payment && o.payment.state === "awaiting" ? "AWAITING PAYMENT" : "NOT PAID")}</span></header>
     <p class="slip-who"><b>${esc(o.name)}</b>${o.phone ? ` · ${esc(o.phone)}` : ""}</p>
     <p class="slip-how">${how}</p>
     <table class="slip-items"><tbody>${rows}</tbody></table>

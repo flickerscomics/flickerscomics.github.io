@@ -64,6 +64,23 @@ It only works while there are no users, so it can't be used later to take over. 
 After that, the **Staff** tab lets you add, remove and reset passwords for everyone else.
 You can delete the `SETUP_KEY` secret afterwards (`npx wrangler secret delete SETUP_KEY`).
 
+## Online payment with Fleeca
+
+Fleeca is GTA World's bank. Reference: `docs/FLEECA.md`. The Worker uses the V2 gateway only. Orders staff key in are never sent to Fleeca.
+
+1. In Fleeca's **Merchant Center** (banking.gta.world/merchant-center), set the key's two addresses, then generate the API key:
+   - **Redirect URL:** `https://flickers-staff-api.flickers-comics.workers.dev/fleeca/return`
+   - **Callback URL:** `https://flickers-staff-api.flickers-comics.workers.dev/fleeca/callback`
+   (Use the Worker's real address if it differs. The addresses can be changed later without a new key.)
+2. Store the key as a secret. From the `worker` folder, run `npx wrangler secret put FLEECA_API_KEY` and paste it when asked. It never goes in the repo or the site.
+3. In `worker/wrangler.toml` set `FLEECA_PAYMENTS = "true"` and keep `FLEECA_MODE = "0"` (sandbox: nothing is charged, every payment succeeds). Deploy with `npx wrangler deploy`.
+4. Test one order end to end in sandbox: order on the site, pay on Fleeca, check the order shows as paid in the staff area and in Discord.
+5. In `data/config.json` set `"payOnline": true` (the checkout button then says "Pay with Fleeca") and commit.
+6. When happy, set `FLEECA_MODE = "1"` and deploy again. That is live: real money moves.
+
+Fleeca allows 10 API calls a minute per key, shared by everything the Worker does. If a customer sees "Fleeca is busy", they just try again in a minute.
+To switch it off, set `FLEECA_PAYMENTS = "false"` and deploy.
+
 ## Day to day
 
 - **Publish changes** in the staff area makes one commit to `main`. The site rebuilds and goes live in a minute or two.

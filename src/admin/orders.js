@@ -6,7 +6,9 @@ import { printSlips } from "./slips.js";
 
 /* ---------- orders tab ---------- */
 const orderStatus = o => o.status || "new";
-const STATUS_NAME = o => ({ new: "New", ready: "Ready", done: o.method === "post" ? "Posted" : "Collected", cancelled: "Cancelled" })[orderStatus(o)];
+const awaiting = o => !!o.payment && o.payment.state === "awaiting"; // an online order the customer hasn't paid for on Fleeca yet
+const payText = o => { const p = o.payment; return o.paid ? (p && p.state === "paid" ? `Paid via Fleeca${p.payerName ? " by " + p.payerName : ""}` : "Paid") : awaiting(o) ? "Waiting for the customer to pay on Fleeca" : "Not paid yet"; };
+const STATUS_NAME = o => awaiting(o) ? "Awaiting payment" : ({ new: "New", ready: "Ready", done: o.method === "post" ? "Posted" : "Collected", cancelled: "Cancelled" })[orderStatus(o)];
 const HISTORY_NAME = (change, o) => ({ new: "Reopened", ready: "Marked ready", done: o.method === "post" ? "Marked posted" : "Marked collected", cancelled: "Cancelled", paid: "Marked paid", unpaid: "Marked unpaid", entered: "Entered" })[change] || change;
 const ORDER_FILTERS = [
   ["open", "Open", o => orderStatus(o) === "new" || orderStatus(o) === "ready"],
@@ -14,9 +16,10 @@ const ORDER_FILTERS = [
 ];
 const isOpen = o => orderStatus(o) === "new" || orderStatus(o) === "ready";
 /* A collection is due once its day arrives (shop time), and stays due until the order is handed over. */
-const isDue = (o, today) => isOpen(o) && o.method === "collect" && !!o.collectDate && o.collectDate <= today;
+const isDue = (o, today) => isOpen(o) && !awaiting(o) && o.method === "collect" && !!o.collectDate && o.collectDate <= today;
 const CHIPS = [
-  ["unpaid", "Not paid", o => !o.paid && orderStatus(o) !== "cancelled"],
+  ["unpaid", "Not paid", o => !o.paid && orderStatus(o) !== "cancelled" && !awaiting(o)],
+  ["await", "Awaiting payment", o => awaiting(o)],
   ["due", "Due today", (o, today) => isDue(o, today)],
   ["post", "To post", o => o.method === "post"]
 ];
@@ -35,7 +38,7 @@ const STOCK_NOTE = {
 
 function ordersCsv(orders) {
   const head = ["Order", "Placed", "Status", "Paid", "Customer", "Phone", "Method", "Collect on", "Address", "Items", "Subtotal", "Deal discount", "Postage", "Total", "Notes"];
-  const rows = orders.map(o => [o.id, o.placedAt, STATUS_NAME(o), o.paid ? "Yes" : "No", o.name, o.phone, o.method === "post" ? "Post" : "Collect", o.collectDate || "", o.address || "",
+  const rows = orders.map(o => [o.id, o.placedAt, STATUS_NAME(o), o.paid ? (o.payment && o.payment.state === "paid" ? "Yes (Fleeca)" : "Yes") : "No", o.name, o.phone, o.method === "post" ? "Post" : "Collect", o.collectDate || "", o.address || "",
     o.items.map(i => `${i.qty} x ${i.title}`).join("; "), o.subtotal, o.discount || 0, o.postage, o.total, o.notes || ""]);
   return "﻿" + [head, ...rows].map(r => r.map(csvCell).join(",")).join("\r\n") + "\r\n";
 }
@@ -43,24 +46,26 @@ function orderHTML(o, expanded) {
   const s = orderStatus(o), finish = o.method === "post" ? "Mark posted" : "Mark collected";
   const btn = (attrs, text, cls = "") => `<button type="button" class="btn btn-small ${cls}" data-oid="${esc(o.id)}" ${attrs}>${text}</button>`;
   const actions = [];
-  if (s === "new") actions.push(btn('data-status="ready"', "Mark ready", "btn-yellow"), btn('data-status="done"', finish));
-  if (s === "ready") actions.push(btn('data-status="done"', finish, "btn-yellow"), btn('data-status="new"', "Back to new"));
-  if (s === "done" || s === "cancelled") actions.push(btn('data-status="new"', "Reopen"));
-  actions.push(btn(`data-paid="${o.paid ? "no" : "yes"}"`, o.paid ? "Mark unpaid" : "Mark paid"));
+  if (awaiting(o)) { /* only cancelling: it's marked paid by itself when the customer pays */ }
+  else if (s === "new") actions.push(btn('data-status="ready"', "Mark ready", "btn-yellow"), btn('data-status="done"', finish));
+  else if (s === "ready") actions.push(btn('data-status="done"', finish, "btn-yellow"), btn('data-status="new"', "Back to new"));
+  else if (s === "done" || s === "cancelled") actions.push(btn('data-status="new"', "Reopen"));
+  if (!awaiting(o)) actions.push(btn(`data-paid="${o.paid ? "no" : "yes"}"`, o.paid ? "Mark unpaid" : "Mark paid"));
   const tool = (act, text) => `<button type="button" class="btn btn-small btn-quiet" data-oact="${act}" data-oid="${esc(o.id)}">${text}</button>`;
   actions.push(tool("copy", "Copy message"), tool("print", "Print slip"));
   if (s === "new" || s === "ready") actions.push(btn('data-status="cancelled"', "Cancel order", "btn-danger"));
   const history = [o.source === "staff" ? `Keyed in by ${o.enteredBy} · ${orderWhen(o.placedAt)}` : `Placed by the customer · ${orderWhen(o.placedAt)}`, ...(o.history || []).filter(h => h.change !== "entered").map(h => `${HISTORY_NAME(h.change, o)} by ${h.by} · ${orderWhen(h.at)}`)];
-  const pillClass = { new: "pill-edit", ready: "pill-added", done: "", cancelled: "pill-void" }[s];
+  const pillClass = awaiting(o) ? "pill-void" : { new: "pill-edit", ready: "pill-added", done: "", cancelled: "pill-void" }[s];
   return `<details class="order${s === "cancelled" ? " is-cancelled" : ""}" data-order="${esc(o.id)}"${expanded ? " open" : ""}>
-    <summary><b>${esc(o.id)}</b> <span>${esc(orderWhen(o.placedAt))}</span> <span>${esc(o.name)}</span> <span class="pill">${o.method === "post" ? "Post" : "Collect"}</span>${o.source === "staff" ? ' <span class="pill pill-void">Counter</span>' : ""} <span class="pill ${pillClass}">${esc(STATUS_NAME(o))}</span>${o.paid ? ' <span class="pill pill-added">Paid</span>' : ""}${o.stock === "manual" || o.stock === "restore-failed" ? ' <span class="pill pill-edit">Adjust stock</span>' : ""}${/^failed/.test(o.discord || "") ? ' <span class="pill pill-edit">Not posted to Discord</span>' : ""} <b class="order-total">${money(o.total)}</b></summary>
+    <summary><b>${esc(o.id)}</b> <span>${esc(orderWhen(o.placedAt))}</span> <span>${esc(o.name)}</span> <span class="pill">${o.method === "post" ? "Post" : "Collect"}</span>${o.source === "staff" ? ' <span class="pill pill-void">Counter</span>' : ""} <span class="pill ${pillClass}">${esc(STATUS_NAME(o))}</span>${o.paid ? ' <span class="pill pill-added">Paid</span>' : ""}${o.payment && o.payment.flag ? ' <span class="pill pill-edit">Check payment</span>' : ""}${o.stock === "manual" || o.stock === "restore-failed" ? ' <span class="pill pill-edit">Adjust stock</span>' : ""}${/^failed/.test(o.discord || "") ? ' <span class="pill pill-edit">Not posted to Discord</span>' : ""} <b class="order-total">${money(o.total)}</b></summary>
     <dl class="done-dl">
       <dt>Phone</dt><dd>${esc(o.phone)}</dd>
       ${o.method === "collect" ? `<dt>Collect on</dt><dd>${esc(o.collectDate)}</dd>` : `<dt>Post to</dt><dd>${escLines(o.address)}</dd>`}
       <dt>Items</dt><dd>${o.items.map(i => `${i.qty} × ${esc(i.title)} · ${money(i.price * i.qty)}`).join("<br>")}</dd>
       ${o.discount ? `<dt>Deal</dt><dd>${esc(o.deal || "Deal")}: −${money(o.discount)}</dd>` : ""}
       <dt>Total</dt><dd>${money(o.total)}${o.postage ? ` (incl. ${money(o.postage)} postage)` : ""}</dd>
-      <dt>Payment</dt><dd>${o.paid ? "Paid" : "Not paid yet"}</dd>
+      <dt>Payment</dt><dd>${esc(payText(o))}${o.payment && o.payment.paidAt ? ` · ${esc(orderWhen(o.payment.paidAt))}` : ""}${o.payment && o.payment.id ? ` · Fleeca payment ${esc(o.payment.id)}` : ""}</dd>
+      ${o.payment && o.payment.flag ? `<dt>Check</dt><dd><b>${esc(o.payment.flag)}</b></dd>` : ""}
       ${STOCK_NOTE[o.stock] ? `<dt>Stock</dt><dd>${STOCK_NOTE[o.stock]}</dd>` : ""}
       ${o.completedAt ? `<dt>Kept until</dt><dd>${esc(orderWhen(archiveEnd(o)))}, then deleted</dd>` : ""}
       ${o.notes ? `<dt>Notes</dt><dd>${escLines(o.notes)}</dd>` : ""}
@@ -88,7 +93,7 @@ export async function renderOrders() {
   const pg = pager("/orders", "orders", data), orders = pg.items, open = new Set();
   const cfg = await shopConfig(), today = shopToday(cfg);
   let filter = "open", query = "";
-  const chips = { unpaid: false, due: false, post: false };
+  const chips = { unpaid: false, await: false, due: false, post: false };
   let shown = []; // what's on screen now, for printing
 
   $("ordersTop").innerHTML = `<div class="orders-status">

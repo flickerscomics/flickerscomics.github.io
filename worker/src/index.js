@@ -19,6 +19,7 @@
 import { HttpError, bad } from "./http.js";
 import { placeOrder, staffOrder, lookupOrder, listOrders, sendTestMessage, updateOrder } from "./orders.js";
 import { createWant, listWants, updateWant, deleteWant, announceRestocks, announceNewIssues } from "./wants.js";
+import { handleCallback, handleReturn, sweepAbandoned } from "./payments.js";
 import { salesReport, reportParams } from "./sales.js";
 import { reorderData } from "./reorder.js";
 import { gh, readStock, branchName, serializeProducts, mergeStock } from "./github.js";
@@ -275,6 +276,7 @@ async function route(request, env) {
     return { token: await signToken(env.SESSION_SECRET, { u: user.username, pv: user.pv, exp }), exp, user: publicUser(user) };
   }
 
+  if (method === "POST" && path === "/fleeca/callback") return handleCallback(env, request); // server to server: signed, no Origin
   if (method === "POST" && path === "/orders") return placeOrder(env, await readJson(request), ip);
   if (method === "POST" && path === "/orders/lookup") return lookupOrder(env, await readJson(request), ip);
   if (method === "POST" && path === "/wants") return createWant(env, await readJson(request), ip);
@@ -340,6 +342,10 @@ async function route(request, env) {
 export default {
   async fetch(request, env) {
     const cors = corsHeaders(request, env);
+    if (request.method === "GET" && new URL(request.url).pathname.replace(/\/+$/, "") === "/fleeca/return") { // the customer's browser coming back from Fleeca
+      try { return await handleReturn(env, new URL(request.url)); }
+      catch (e) { console.error("Fleeca return failed"); return new Response(null, { status: 303, headers: { Location: `${String(env.SITE_URL || "").replace(/\/+$/, "")}/?payment=unknown` } }); }
+    }
     if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: cors });
     // Browsers from other sites can't read responses without a matching Origin, but refuse them outright too.
     const origin = request.headers.get("Origin");
@@ -351,5 +357,9 @@ export default {
       console.error(e);
       return json({ error: "Something went wrong. Try again." }, 500, cors);
     }
+  },
+  // Cron trigger (wrangler.toml): cancel online orders nobody paid for.
+  async scheduled(event, env, ctx) {
+    ctx.waitUntil(sweepAbandoned(env).catch(() => console.error("Payment sweep failed")));
   }
 };
