@@ -8,7 +8,7 @@
   "siteUrl": "https://flickerscomics.github.io",
   "adminApi": "https://flickers-staff-api.flickers-comics.workers.dev",
   "orderApi": "https://flickers-staff-api.flickers-comics.workers.dev/orders",
-  "payOnline": false,
+  "payOnline": true,
   "deal": { "enabled": true, "buy": 2, "free": 1 },
   "categories": [
     {

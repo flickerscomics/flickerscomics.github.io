@@ -15,7 +15,7 @@ ORDERS_ENABLED = "true"
 # Fleeca online payments (docs/FLEECA.md). Needs the secret FLEECA_API_KEY. Keep "false" until the Merchant Center addresses are set.
 FLEECA_PAYMENTS = "true"
 # 0 = sandbox (nothing is charged), 1 = live
-FLEECA_MODE = "0"
+FLEECA_MODE = "1"
 # Optional: the id of a Discord role to ping on every new order.
 # DISCORD_PING_ROLE = "123456789012345678"
 
