@@ -73,6 +73,7 @@ export function renderStock() {
       <button type="button" class="btn btn-small" data-bulk="price">Set price</button>
       <button type="button" class="btn btn-small" data-bulk="adjust">Raise or lower price</button>
       <button type="button" class="btn btn-small" data-bulk="stock">Set stock</button>
+      <button type="button" class="btn btn-small" data-bulk="labels">Set labels</button>
       <button type="button" class="btn btn-small btn-danger" data-bulk="delete">Delete</button>
       <button type="button" class="link-btn" data-bulk="clear">Clear selection</button>
     </div>
@@ -169,6 +170,7 @@ function rowPills(p, c) {
   if (c.added.has(p.id)) pills.push(`<span class="pill pill-added">Added</span>`);
   else if (c.edited.has(p.id)) pills.push(`<span class="pill pill-edit">Edited</span>`);
   if (S.draftFeat.slice(0, 3).includes(p.id)) pills.push(`<span class="pill pill-week">New this week</span>`);
+  for (const b of p.badges || []) pills.push(`<span class="pill">${b === "new" ? "New" : b === "variant" ? "Variant" : "Exclusive"}</span>`);
   if (p.stock <= 0) pills.push(`<span class="pill">Sold out</span>`);
   if (!p.image) pills.push(`<span class="pill pill-void">No cover</span>`);
   return pills.join("");
@@ -284,6 +286,26 @@ function openBulk(mode) {
       if ($("b-stock").value === "" || !Number.isInteger(v) || v < 0 || v > 100000) return { error: "Enter a whole number of copies, 0 or more." };
       items.forEach(p => { p.stock = v; });
       return { done: `Set stock to ${v} for ${plural(n)}.` };
+    };
+  } else if (mode === "labels") {
+    const LABELS = [["new", "New"], ["variant", "Variant"], ["exclusive", "Exclusive"], ["week", "Show in “New this week”"]];
+    const row = ([k, name]) => `<div class="field"><label for="b-l-${k}">${name}</label><select id="b-l-${k}"><option value="">Leave as it is</option><option value="add">Add to all ${n}</option><option value="remove">Remove from all ${n}</option></select></div>`;
+    html = `${head("Set labels")}<div class="adm-card-body"><p>Change the labels on <b>${plural(n)}</b>. Anything left as it is stays untouched.</p>
+      <div class="two">${LABELS.slice(0, 3).map(row).join("")}</div>${row(LABELS[3])}
+      <p class="hint">Only three comics show in “New this week”. Adding more puts these first, and the first three of them show.</p>${foot("Apply labels")}</div>`;
+    apply = () => {
+      const pick = k => $("b-l-" + k).value;
+      if (!LABELS.some(([k]) => pick(k))) return { error: "Choose something to add or remove." };
+      const done = [];
+      for (const [k, name] of LABELS.slice(0, 3)) {
+        const v = pick(k); if (!v) continue;
+        items.forEach(p => { const has = (p.badges || []).filter(b => b !== k); p.badges = v === "add" ? [...has, k] : has; if (!p.badges.length) delete p.badges; });
+        done.push(`${v === "add" ? "added" : "removed"} “${name}”`);
+      }
+      const w = pick("week");
+      if (w === "add") { const ids = items.map(p => p.id), set = new Set(ids); S.draftFeat = [...ids, ...S.draftFeat.filter(id => !set.has(id))]; done.push(n > 3 ? "added them to “New this week” (only the first three show)" : "added them to “New this week”"); }
+      if (w === "remove") { const set = new Set(items.map(p => p.id)); S.draftFeat = S.draftFeat.filter(id => !set.has(id)); done.push("removed them from “New this week”"); }
+      return { done: `For ${plural(n)}: ${done.join(", ")}.` };
     };
   } else if (mode === "delete") {
     const names = items.slice(0, 5).map(p => `<li>${esc(label(p))}</li>`).join("");
