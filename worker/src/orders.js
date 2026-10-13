@@ -186,7 +186,12 @@ export async function placeOrder(env, raw, ip) {
   const n = Number(await env.USERS.get(rlKey)) || 0;
   if (n >= ORDERS_PER_WINDOW) throw bad(429, "That's a lot of orders from your connection. Wait a few minutes and try again.");
   await env.USERS.put(rlKey, String(n + 1), { expirationTtl: WINDOW_SECONDS });
-  return createOrder(env, raw);
+  try { return await createOrder(env, raw); }
+  catch (e) {
+    // Fleeca (or GitHub) being unavailable isn't the customer's doing, so it doesn't use up one of their orders.
+    if (e instanceof HttpError && (e.status === 502 || e.status === 503)) await env.USERS.put(rlKey, String(n), { expirationTtl: WINDOW_SECONDS }).catch(() => {});
+    throw e;
+  }
 }
 
 /* An order keyed in by signed-in staff (counter or phone). Not rate limited, and it works even while online ordering is switched off. */

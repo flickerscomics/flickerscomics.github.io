@@ -336,3 +336,11 @@ test("in sandbox mode a 'successful' payment is recorded but never marks the ord
   const res = await back(env, pay.payment_id);
   assert.equal(res.headers.get("Location"), `${ORIGIN}/?order=${r.orderId}&status=paid`);
 });
+
+test("a failed attempt because Fleeca is unavailable doesn't count towards the customer's order limit", async () => {
+  const { fl } = world(), env = baseEnv();
+  fl.down = true;
+  for (let i = 0; i < 8; i++) assert.equal((await call(env, "POST", "/orders", buy())).status, 502, "never locked out for Fleeca's trouble");
+  fl.down = false;
+  assert.equal((await call(env, "POST", "/orders", buy())).status, 200);
+});
