@@ -53,19 +53,22 @@ export async function gatherBriefing(env) {
 export function briefingEmbed(b, site = "") {
   const orderLine = o => `• **${o.id}** · ${cut(escMd(o.name), 40)} · ${money(o.total)}${o.paid ? "" : " · not paid"}`;
   const fields = [];
-  fields.push({ name: "Open orders", value: b.newOrders + b.ready ? `${b.newOrders} new, ${b.ready} ready${b.oldest ? `\nOldest: **${b.oldest.id}**, placed ${ago(b.oldest.placedAt)}` : ""}` : "None. All caught up." });
-  if (b.due.length) fields.push({ name: `Collections due (${b.due.length})`, value: more(b.due.map(o => `${orderLine(o)}${o.collectDate < b.today ? " · **overdue** since " + o.collectDate : ""}`)) });
-  if (b.toPost.length) fields.push({ name: `To post (${b.toPost.length})`, value: more(b.toPost.map(orderLine)) });
-  if (b.unpaid.length) fields.push({ name: `Not paid yet (${b.unpaid.length})`, value: more(b.unpaid.map(orderLine), 5) });
-  if (b.check.length) fields.push({ name: "Check these payments", value: more(b.check.map(o => `• **${o.id}**: ${cut(escMd(o.payment.flag), 150)}`)) });
-  if (b.backInStock.length) fields.push({ name: "Back in stock with people waiting", value: more(b.backInStock.map(({ p, people }) => `• **${cut(escMd(fullTitle(p)), 100)}**: ${people} waiting`)) + "\nContact them in the staff area → Wanted." });
-  if (b.lastCopies && b.lastCopies.length) fields.push({ name: `Nearly gone (${b.lastCopies.length})`, value: more(b.lastCopies.map(p => `• **${cut(escMd(fullTitle(p)), 100)}**: ${p.stock} left`), 10) });
-  if (b.soldOut) fields.push({ name: "Sold out", value: `${b.soldOut} comic${b.soldOut === 1 ? "" : "s"}. See the Reorder tab.`, inline: true });
-  if (b.requests) fields.push({ name: "Special requests", value: `${b.requests} waiting in Wanted.`, inline: true });
-  if (b.awaitingPay) fields.push({ name: "Waiting on Fleeca", value: `${b.awaitingPay} order${b.awaitingPay === 1 ? "" : "s"} not paid yet (cancelled automatically after 30 minutes).`, inline: true });
+  fields.push({ name: "📦 Open orders", value: b.newOrders + b.ready ? `${b.newOrders} new, ${b.ready} ready${b.oldest ? `\nOldest: **${b.oldest.id}**, placed ${ago(b.oldest.placedAt)}` : ""}` : "None. All caught up." });
+  if (b.due.length) fields.push({ name: `🕗 Collections due (${b.due.length})`, value: more(b.due.map(o => `${orderLine(o)}${o.collectDate < b.today ? " · **overdue** since " + o.collectDate : ""}`)) });
+  if (b.toPost.length) fields.push({ name: `✉️ To post (${b.toPost.length})`, value: more(b.toPost.map(orderLine)) });
+  if (b.unpaid.length) fields.push({ name: `💸 Not paid yet (${b.unpaid.length})`, value: more(b.unpaid.map(orderLine), 5) });
+  if (b.check.length) fields.push({ name: "⚠️ Check these payments", value: more(b.check.map(o => `• **${o.id}**: ${cut(escMd(o.payment.flag), 150)}`)) });
+  if (b.backInStock.length) fields.push({ name: "🔔 Back in stock with people waiting", value: more(b.backInStock.map(({ p, people }) => `• **${cut(escMd(fullTitle(p)), 100)}**: ${people} waiting`)) + "\nContact them in the staff area → Wanted." });
+  if (b.lastCopies && b.lastCopies.length) fields.push({ name: `📉 Nearly gone (${b.lastCopies.length})`, value: more(b.lastCopies.map(p => `• **${cut(escMd(fullTitle(p)), 100)}**: ${p.stock} left`), 10) });
+  if (b.soldOut) fields.push({ name: "🚫 Sold out", value: `${b.soldOut} comic${b.soldOut === 1 ? "" : "s"}. See the Reorder tab.`, inline: true });
+  if (b.requests) fields.push({ name: "💬 Special requests", value: `${b.requests} waiting in Wanted.`, inline: true });
+  if (b.awaitingPay) fields.push({ name: "⏳ Waiting on Fleeca", value: `${b.awaitingPay} order${b.awaitingPay === 1 ? "" : "s"} not paid yet (cancelled automatically after 30 minutes).`, inline: true });
+  const todo = b.due.length + b.toPost.length + b.check.length + b.backInStock.length;
+  const day = new Intl.DateTimeFormat("en-GB", { weekday: "long", day: "numeric", month: "long", timeZone: "UTC" }).format(new Date(b.today + "T12:00:00Z"));
   return {
-    title: `Daily briefing · ${b.today}`,
-    color: 0xFFE912,
+    title: `📋 Daily briefing · ${day}`,
+    description: todo ? `**${todo} thing${todo === 1 ? "" : "s"} need${todo === 1 ? "s" : ""} a look today.**` : "**Nothing urgent today.** 🎉",
+    color: todo ? 0xFFE912 : 0x23A55A,
     ...(site ? { url: `${site}/admin/` } : {}),
     fields,
     footer: { text: b.capped ? "Based on the newest 30 orders" : "Flickers Comics" }
@@ -107,7 +110,7 @@ export async function sendBriefing(env) {
   const target = { ...env, DISCORD_WEBHOOK_URL: env.DISCORD_BRIEFING_WEBHOOK_URL || env.DISCORD_WEBHOOK_URL };
   const sent = await webhook(target, { payload: {
     username: "Flickers Orders",
-    content: role ? `<@&${role}> daily briefing` : undefined,
+    content: `${role ? `<@&${role}> ` : ""}Tyler here, here's today's briefing.`,
     allowed_mentions: { parse: [], roles: role ? [role] : [] },
     embeds: [briefingEmbed(b, siteBase(env))]
   } });

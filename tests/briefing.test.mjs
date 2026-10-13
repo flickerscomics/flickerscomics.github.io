@@ -30,7 +30,7 @@ function setup({ orders = [], wants = [], products = PRODUCTS } = {}) {
   return { env, posts };
 }
 const run = async env => { let p; await worker.scheduled({ cron: "0 19 * * *" }, env, { waitUntil: x => { p = x; } }); await p; };
-const field = (post, name) => (post.embeds[0].fields.find(f => f.name.startsWith(name)) || {}).value;
+const field = (post, name) => (post.embeds[0].fields.find(f => f.name.includes(name)) || {}).value;
 
 test("the briefing lists what needs doing", async () => {
   const { env, posts } = setup({
@@ -47,13 +47,15 @@ test("the briefing lists what needs doing", async () => {
   await run(env);
   assert.equal(posts.length, 1);
   const e = posts[0].embeds[0];
-  assert.match(e.title, /^Daily briefing/);
+  assert.match(e.title, /Daily briefing/);
+  assert.match(posts[0].content, /Tyler here, here's today's briefing./);
+  assert.match(e.description, /need a look today|needs a look today/);
   assert.match(field(posts[0], "Open orders"), /3 new, 1 ready/);
   assert.match(field(posts[0], "Open orders"), /Oldest: \*\*FC-AAAAAA\*\*, placed 3 days ago/);
   assert.match(field(posts[0], "Collections due"), /FC-AAAAAA/);
   assert.ok(!/FC-BBBBBB/.test(field(posts[0], "Collections due")), "a future collection isn't due");
   assert.match(field(posts[0], "To post"), /FC-CCCCCC/);
-  assert.ok(!/FC-EEEEEE|FC-DDDDDD/.test(JSON.stringify(e.fields.filter(f => /^(Open|Collections|To post|Not paid)/.test(f.name)))), "waiting-for-payment and finished orders are left out of the to-do lists");
+  assert.ok(!/FC-EEEEEE|FC-DDDDDD/.test(JSON.stringify(e.fields.filter(f => /(Open|Collections|To post|Not paid)/.test(f.name)))), "waiting-for-payment and finished orders are left out of the to-do lists");
   assert.match(field(posts[0], "Check these payments"), /FC-FFFFFF.*Refund/);
   assert.match(field(posts[0], "Back in stock"), /Bravo #2.*2 waiting/);
   assert.ok(!/Charlie/.test(field(posts[0], "Back in stock")), "still sold out, so nothing to tell anyone");
@@ -91,7 +93,7 @@ test("the briefing pings its own role, in its own channel, and only that role", 
   globalThis.fetch = async (url, opts) => { if (String(url).startsWith("https://discord.test/api/webhooks/2/")) { staff.push(JSON.parse(opts.body)); return new Response("{}"); } return real(url, opts); };
   await run(env);
   assert.equal(posts.length, 0, "not in the orders channel");
-  assert.match(staff[0].content, /^<@&222222222222222222> /);
+  assert.match(staff[0].content, /^<@&222222222222222222> Tyler here/);
   assert.deepEqual(staff[0].allowed_mentions, { parse: [], roles: ["222222222222222222"] });
 });
 
