@@ -30,9 +30,9 @@ async function call(env, path, init = {}) {
       headers: { Accept: "application/json", Authorization: `Bearer ${String(env.FLEECA_API_KEY).trim()}`, ...(init.body ? { "Content-Type": "application/json" } : {}) }
     });
   } catch (e) { throw new FleecaError(0, "Fleeca couldn't be reached"); }
-  let data = null;
-  try { data = await res.json(); } catch (e) { /* no body */ }
-  if (!res.ok) throw new FleecaError(res.status, `Fleeca answered ${res.status}`); // the status only, never the key or the body
+  let data = null, text = "";
+  try { text = await res.text(); data = JSON.parse(text); } catch (e) { /* no body, or not JSON */ }
+  if (!res.ok) { const e = new FleecaError(res.status, `Fleeca answered ${res.status}`); e.detail = `[${res.headers.get("content-type") || "?"}] ` + String((data && (data.message || data.error || JSON.stringify(data))) || text || "").replace(/[^ -~]/g, " ").slice(0, 300); throw e; } // the status and Fleeca's short message go to the logs only, never to customers
   return data || {};
 }
 

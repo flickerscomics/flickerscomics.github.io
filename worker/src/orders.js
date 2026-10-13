@@ -241,6 +241,7 @@ async function createOrder(env, raw, user = null) {
       await env.USERS.put(key, JSON.stringify(record), { expirationTtl: ttlSeconds(record) });
       return { orderId: order.id, subtotal: order.subtotal, discount: order.discount || 0, postage: order.postage, total: order.total, paid: false, paymentUrl: pay.link };
     } catch (e) {
+      console.error("Fleeca payment not created:", e instanceof FleecaError ? `status ${e.status} ${e.detail || ""}` : "unexpected error");
       await rollbackOrder(env, record, key); // no payment link, so no order: stock back, nothing posted
       throw e instanceof FleecaError ? unavailable(e) : e;
     }
