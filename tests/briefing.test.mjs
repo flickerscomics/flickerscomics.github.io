@@ -94,3 +94,24 @@ test("the briefing pings its own role, in its own channel, and only that role", 
   assert.match(staff[0].content, /^<@&222222222222222222> /);
   assert.deepEqual(staff[0].allowed_mentions, { parse: [], roles: ["222222222222222222"] });
 });
+
+test("overdue orders get one ping each in the orders channel, once, however long they stay overdue", async () => {
+  const yesterday = new Date(Date.now() - 2 * 86400000).toISOString().slice(0, 10);
+  const { env, posts } = setup({ orders: [
+    order("FC-LATE11", { collectDate: yesterday }),
+    order("FC-TODAY1", { collectDate: today }),
+    order("FC-POST11", { method: "post", address: "1 Road", collectDate: null, placedAt: old }),
+    order("FC-POST22", { method: "post", address: "1 Road", collectDate: null }),
+    order("FC-LATE22", { collectDate: yesterday, status: "done" })
+  ] });
+  env.DISCORD_PING_ROLE = "111111111111111111";
+  await run(env);
+  const pings = posts.filter(p => /overdue/.test(p.content || ""));
+  assert.equal(pings.length, 1);
+  assert.match(pings[0].content, /^<@&111111111111111111> /);
+  const text = pings[0].embeds[0].description;
+  assert.ok(/FC-LATE11/.test(text) && /FC-POST11/.test(text), "a missed collection and an unposted order");
+  assert.ok(!/FC-TODAY1|FC-POST22|FC-LATE22/.test(text), "due today, fresh, and finished orders aren't overdue");
+  await run(env);
+  assert.equal(posts.filter(p => /overdue/.test(p.content || "")).length, 1, "the next day they aren't pinged again");
+});

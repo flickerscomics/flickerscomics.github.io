@@ -18,8 +18,8 @@ FLEECA_PAYMENTS = "true"
 FLEECA_MODE = "1"
 # The daily briefing always pings this role (the @Staff role id). Its channel is the secret DISCORD_BRIEFING_WEBHOOK_URL (optional).
 DISCORD_BRIEFING_ROLE = "1556428080594161764"
-# Optional: the id of a Discord role to ping on every new order.
-# DISCORD_PING_ROLE = "123456789012345678"
+# The role pinged in the orders channel: once for each new order, when an order is ready, and once when one is overdue.
+DISCORD_PING_ROLE = "1556428080594161764"
 
 # Every 15 minutes: cancel online orders still unpaid after 30 minutes and put their comics back.
 # Every day at 19:00 UTC (8 PM UTC+1): post the daily briefing to the staff Discord channel.

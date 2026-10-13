@@ -3,7 +3,8 @@
 
    It only reads, and it's built to stay inside a free-plan Worker's limit of about 50 calls per run: the newest 30 orders
    (one listing plus one read each), the stock from GitHub (a few calls), and the wanted list's key metadata (no reads). */
-import { escMd, cut, webhook } from "./discord.js";
+import { escMd, cut, pingRole, webhook } from "./discord.js";
+import { ttlSeconds } from "./orders.js";
 import { readStock } from "./github.js";
 import { shopConfig, siteBase } from "./shop.js";
 import { wantKeys } from "./wants.js";
@@ -20,7 +21,7 @@ const more = (lines, n = SHOWN) => lines.slice(0, n).join("\n") + (lines.length 
 export async function gatherBriefing(env) {
   const cfg = await shopConfig(env), today = todayIn(cfg.timeZone);
   const page = await env.USERS.list({ prefix: "order:", limit: ORDERS_READ });
-  const orders = (await Promise.all(page.keys.map(k => env.USERS.get(k.name)))).filter(Boolean).map(raw => JSON.parse(raw)).filter(o => !o.test);
+  const orders = (await Promise.all(page.keys.map(async k => { const raw = await env.USERS.get(k.name); return raw && Object.assign(JSON.parse(raw), { _key: k.name }); }))).filter(o => o && !o.test);
   const open = orders.filter(o => ["new", "ready"].includes(status(o)) && !awaiting(o));
   const stock = await readStock(env).then(s => s.products).catch(() => null);
   const keys = await wantKeys(env).catch(() => []);
@@ -32,7 +33,7 @@ export async function gatherBriefing(env) {
     else if (m && m.k === "request") requests++;
   }
   return {
-    today,
+    today, orders,
     newOrders: open.filter(o => status(o) === "new").length,
     ready: open.filter(o => status(o) === "ready").length,
     oldest: open.length ? open.reduce((a, b) => (Date.parse(a.placedAt) <= Date.parse(b.placedAt) ? a : b)) : null,
@@ -75,8 +76,33 @@ export function briefingEmbed(b, site = "") {
    (the secret DISCORD_BRIEFING_WEBHOOK_URL, e.g. for #staff-chat). Without them it goes to the orders channel with no ping. */
 const briefingRole = env => (/^\d{5,25}$/.test(String(env.DISCORD_BRIEFING_ROLE || "")) ? String(env.DISCORD_BRIEFING_ROLE) : null);
 
+/* Orders that have gone past their day: a collection whose day has passed, or an order to post that's still waiting two days after it was placed.
+   Each is pinged once, in the orders channel, however many days it stays overdue (the order is marked). */
+const POST_OVERDUE_DAYS = 2, OVERDUE_PER_RUN = 5;
+const isOverdue = (o, today) => !o.overduePinged && ["new", "ready"].includes(status(o)) && !awaiting(o) && (
+  o.method === "collect" ? !!o.collectDate && o.collectDate < today : Date.now() - Date.parse(o.placedAt) >= POST_OVERDUE_DAYS * 86400000);
+
+export async function pingOverdue(env, b) {
+  const late = b.orders.filter(o => isOverdue(o, b.today)).slice(0, OVERDUE_PER_RUN);
+  if (!late.length) return 0;
+  const role = pingRole(env);
+  const lines = late.map(o => o.method === "collect"
+    ? `• **${o.id}** · ${cut(escMd(o.name), 40)}: collection was due ${o.collectDate}`
+    : `• **${o.id}** · ${cut(escMd(o.name), 40)}: still to post, placed ${ago(o.placedAt)}`);
+  const sent = await webhook(env, { payload: {
+    username: "Flickers Orders",
+    content: `${role ? `<@&${role}> ` : ""}overdue`,
+    allowed_mentions: { parse: [], roles: role ? [role] : [] },
+    embeds: [{ title: late.length === 1 ? "Order overdue" : `${late.length} orders overdue`, description: lines.join("\n"), color: 0xF59E0B, footer: { text: "Contact the customer, then update the order in the staff area" } }]
+  } });
+  if (!sent.ok) { console.error("Couldn't post the overdue ping:", sent.reason); return 0; }
+  for (const o of late) { const { _key, ...rec } = o; await env.USERS.put(_key, JSON.stringify({ ...rec, overduePinged: true }), { expirationTtl: ttlSeconds(rec) }); }
+  return late.length;
+}
+
 export async function sendBriefing(env) {
   const b = await gatherBriefing(env);
+  await pingOverdue(env, b).catch(() => console.error("Overdue ping failed"));
   const role = briefingRole(env);
   const target = { ...env, DISCORD_WEBHOOK_URL: env.DISCORD_BRIEFING_WEBHOOK_URL || env.DISCORD_WEBHOOK_URL };
   const sent = await webhook(target, { payload: {

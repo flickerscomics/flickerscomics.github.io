@@ -116,3 +116,9 @@ collections due or overdue, orders to post, orders not paid yet, payments to che
 how many are sold out, special requests, and online orders waiting on Fleeca. It posts even on a quiet day. It always pings the role in `DISCORD_BRIEFING_ROLE` (the @Staff role id, set in `worker/wrangler.toml`), and posts to the channel of the secret
 `DISCORD_BRIEFING_WEBHOOK_URL` (for example #staff-chat; without it the orders channel is used). The time is the cron in `worker/wrangler.toml` (`0 19 * * *`, always UTC,
 so after the clocks go back it is 7 PM in London); change it there and deploy. Code: `worker/src/briefing.js`. It reads the newest 30 orders, so on a very busy day the footer says so.
+
+### Pings in the orders channel
+
+With `DISCORD_PING_ROLE` set (the Staff role), staff are pinged **once per new order** (an order paid through Fleeca is posted, and pinged, when it's paid; staff-entered orders never ping),
+**once when an order is marked ready**, and **once when an order goes overdue**: a collection whose day has passed, or an order to post that is still waiting two days after it was placed.
+The overdue check runs with the daily briefing, lists up to 5 orders in one message, and marks each order so it is never pinged for being overdue twice. Edits to an order never ping.
