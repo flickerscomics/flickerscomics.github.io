@@ -148,7 +148,7 @@ const seriesOf = {};
 seriesList.forEach(sr => sr.items.forEach(p => { seriesOf[p.id] = sr; }));
 
 /* ---------- pages ---------- */
-const ctxFor = root => ({ root, cfg, cats, products, featured: featuredRaw, groups, groupBy, groupKey, seriesOf, hasSeries: seriesList.length > 0 });
+const ctxFor = root => ({ root, cfg, cats, products, featured: featuredRaw, groups, groupBy, groupKey, seriesOf, hasSeries: seriesList.length > 0, seriesCount: seriesList.length });
 const ogDefault = `${siteUrl}/assets/og.png`;
 const shell = (opts) => page({ cfg, fontPreload, fontCss, ...opts });
 

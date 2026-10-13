@@ -310,6 +310,14 @@ export function homePage(ctx) {
   const kinds = (ctx.cats || []).filter(c => c.key !== "all" && products.some(p => p.cat === c.key)).map(c => String(c.label || c.key).toLowerCase());
   const stocked = kinds.length ? kinds.length === 1 ? kinds[0] : kinds.slice(0, -1).join(", ") + " and " + kinds[kinds.length - 1] : "comics";
   const lede = `${stocked[0].toUpperCase() + stocked.slice(1)} in stock now. Order online, then collect at the counter or have it posted to you.`;
+  const stats = `<dl class="hero-stats"><div><dt>On the shelves</dt><dd>${total}</dd></div>${hero.length ? `<div><dt>New this week</dt><dd>${hero.length}</dd></div>` : ""}${ctx.hasSeries ? `<div><dt>Series to follow</dt><dd>${ctx.seriesCount || ""}</dd></div>` : ""}</dl>`;
+  // "Shop by type": a tile per category with a couple of its covers, when the shop has more than one kind of comic
+  const tiles = ctx.groupBy === "cat" && groups.length > 1
+    ? `<section class="types" aria-labelledby="typesTitle"><div class="wrap"><h2 class="sr-only" id="typesTitle">Shop by type</h2><div class="tiles">${groups.map(g => {
+        const pick = products.filter(p => p.cat === g.key && p.image).sort((a, b) => (b.stock > 0) - (a.stock > 0)).slice(0, 2);
+        return `<button type="button" class="tile" data-tile="${esc(g.key)}"><span class="tile-covers" aria-hidden="true">${pick.map((p, i) => `<span class="tile-cover tile-cover-${i + 1}">${coverHTML(p, { imgBase: root, lazy: true, sizes: "120px" })}</span>`).join("")}</span><span class="tile-text"><b>${esc(g.label)}</b><span>${g.count} in the shop</span></span><span class="tile-go" aria-hidden="true">→</span></button>`;
+      }).join("")}</div></div></section>`
+    : "";
   const dividers = groups.length > 1
     ? `<button type="button" class="divider" data-group="all" aria-pressed="true">Everything<span class="n">${total}</span></button>` + groups.map(g => `<button type="button" class="divider" data-group="${esc(g.key)}" aria-pressed="false">${esc(g.label)}<span class="n">${g.count}</span></button>`).join("")
     : "";
@@ -328,6 +336,7 @@ ${header(root, { series: ctx.hasSeries })}
           <a class="btn btn-yellow" href="#shop">Browse the shelves</a>
           <a class="btn btn-plain" href="#how">How ordering works</a>
         </div>
+        ${stats}
         <ul class="hero-facts">
           <li><strong>Open every day</strong> ${hoursText(cfg)}</li>
           <li><strong>Collect in store</strong> free</li>
@@ -341,6 +350,8 @@ ${header(root, { series: ctx.hasSeries })}
   </section>
 
   <div class="ticker" aria-hidden="true"><div class="ticker-track">${ticker(cfg, hero.length > 0).repeat(2)}</div></div>
+
+  ${tiles}
 
   <section class="shop" id="shop" aria-labelledby="shopTitle">
     <div class="wrap">

@@ -778,7 +778,7 @@ function buyAction(action, st, rerender, inDialog) {
 }
 
 document.addEventListener("click", ev => {
-  const t = ev.target.closest("[data-want],[data-save],[data-share-saved],[data-share-cart],[data-open],[data-add],.divider[data-group],[data-inc],[data-dec],[data-remove],[data-qv],[data-close],[data-copy],[data-track],[data-track-this],[data-track-again]");
+  const t = ev.target.closest("[data-want],[data-save],[data-share-saved],[data-share-cart],[data-open],[data-add],.divider[data-group],[data-tile],[data-inc],[data-dec],[data-remove],[data-qv],[data-close],[data-copy],[data-track],[data-track-this],[data-track-again]");
   if (!t) return;
   const d = t.dataset;
   if ("track" in d) { openTrack(); return; }
@@ -794,6 +794,7 @@ document.addEventListener("click", ev => {
     ev.preventDefault(); openQuickView(d.open); return;
   }
   if (d.add) { if (t.getAttribute("aria-disabled") === "true") { const p = byId[d.add]; toast(p.stock <= 0 ? "That one is sold out." : "Every copy we have is already in your cart."); } else handleAdd(d.add, t); return; }
+  if (d.tile) { setGroup(d.tile); $("shop").scrollIntoView({ behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" }); return; }
   if (d.group) { setGroup(d.group); return; }
   if (d.inc) { setQty(d.inc, cartQty(d.inc) + 1); return; }
   if (d.dec) { setQty(d.dec, cartQty(d.dec) - 1); return; }
