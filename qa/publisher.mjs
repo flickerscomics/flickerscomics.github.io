@@ -24,6 +24,9 @@ if (shop.groupBy === "cat" && counts.size > 1) {
   check("choosing a publisher shows only its comics", (await shown()) === PUB_COUNT, `${await shown()} of ${PUB_COUNT}`);
   check("and it goes in the address bar", page.url().includes("pub="), page.url());
   check("the results line says so", (await page.$eval("#results", e => e.textContent)).includes("from " + PUB));
+  // the list a browser opens must have a solid background of its own (it falls back to white otherwise, which is unreadable in dark mode)
+  const paint = await page.$eval("#pubFilter", sel => { const o = getComputedStyle(sel.querySelector("option")), c = getComputedStyle(sel); return { optBg: o.backgroundColor, optFg: o.color, selBg: c.backgroundColor }; });
+  check("the drop-down list has a solid background that matches the theme", !/^rgba\(0, 0, 0, 0\)$|transparent/.test(paint.optBg) && !/^rgba\(0, 0, 0, 0\)$|transparent/.test(paint.selBg) && paint.optBg !== paint.optFg, JSON.stringify(paint));
   // together with a kind tab
   const cat = shop.products.find(p => pubOf(p) === PUB).cat;
   const both = shop.products.filter(p => pubOf(p) === PUB && p.cat === cat).length;

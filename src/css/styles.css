@@ -670,3 +670,63 @@ dialog::backdrop{background:var(--scrim);-webkit-backdrop-filter:blur(5px);backd
 @media print{.types,.hero-stats{display:none}}
 .tile::before{width:44%;opacity:.12}
 @media (max-width:640px){.tiles,.dividers{scroll-padding-inline:clamp(16px,4vw,40px)}}
+
+/* ---------- drop-down menus follow the theme ----------
+   Without a solid colour the list a browser pops open falls back to white, which makes light text unreadable in dark mode. */
+select{color-scheme:inherit}
+select option,select optgroup{background-color:var(--paper-raised);color:var(--ink)}
+.chip-select select{background-color:var(--paper-raised)}
+
+/* ---------- the "type tile" look, shared ----------
+   Rounded, softly graded, hairline border, a yellow glow in the corner that grows on hover. */
+.panel,.day,.footer-cols>div,.hero-stats div{position:relative;overflow:hidden;border:1.5px solid var(--hair);background:linear-gradient(160deg,var(--paper-raised),color-mix(in srgb,var(--paper-raised) 60%,var(--paper)))}
+.panel{background:linear-gradient(170deg,var(--band-raised),color-mix(in srgb,var(--band-raised) 84%,var(--band)));border-color:rgba(255,255,255,.14)}
+.footer-cols>div{background:linear-gradient(160deg,rgba(255,255,255,.07),rgba(255,255,255,.02));border-color:rgba(255,255,255,.14)}
+.panel::before,.footer-cols>div::before,.day:not(.is-today)::before{content:"";position:absolute;inset:auto -22% -62% auto;width:52%;aspect-ratio:1;border-radius:50%;background:var(--yellow);opacity:.1;pointer-events:none;transition:opacity .2s ease,transform .3s ease}
+@media (prefers-reduced-motion:no-preference){.panel,.day{transition:transform .18s ease,border-color .18s ease,box-shadow .18s ease}}
+.panel:hover,.day:not(.is-today):hover{transform:translateY(-3px);border-color:var(--yellow);box-shadow:0 18px 34px -18px rgba(0,0,0,.6)}
+.panel:hover::before,.day:not(.is-today):hover::before,.footer-cols>div:hover::before{opacity:.26;transform:scale(1.2)}
+.panel>*,.footer-cols>div>*{position:relative}
+.panel-n{position:absolute}
+.footer-cols{gap:14px}
+.footer-cols>div{min-width:200px;padding:16px 20px 18px;border-radius:var(--r)}
+.footer-cols h2{margin-bottom:8px}
+.status-pill{background:linear-gradient(160deg,var(--paper-raised),color-mix(in srgb,var(--paper-raised) 60%,var(--paper)))}
+
+/* ---------- phones ---------- */
+@media (max-width:640px){
+  .hero-in{padding-block:30px 40px}
+  .hero h1{font-size:clamp(46px,14vw,64px)}
+  .lede{margin:16px 0 22px;font-size:17px}
+  .hero-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .hero-actions .btn{padding:12px 10px;font-size:15px;text-align:center}
+  .hero-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:24px}
+  .hero-stats div{min-width:0;padding:10px 10px 8px;border-radius:14px}
+  .hero-stats dd{font-size:28px}
+  .hero-stats dt{font-size:10px;letter-spacing:.07em}
+  .hero-facts{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:14px}
+  .hero-facts li{padding:6px 10px;font-size:12.5px;line-height:1.3;border-radius:12px}
+  .hero-facts li:last-child:nth-child(odd){grid-column:1/-1}
+  .rack{margin-top:8px}
+  .section-head{margin-bottom:16px}
+  .tools{gap:8px}
+  .sort{width:100%}
+  .sort select{flex:1}
+  .chips{gap:8px}
+  .chips .chip-select{flex:1 1 calc(50% - 4px);min-width:0}
+  .chips .chip-select select{flex:1;min-width:0;width:100%}
+  .chip-select span{flex:none}
+  .meta{overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+  .grid{gap:30px 12px}
+  .price-tag{font-size:14.5px;padding:4px 10px 3px}
+  .add{padding:8px 14px}
+  .to-top{width:40px;height:40px;right:12px;bottom:12px;opacity:.92}
+  .footer-cols{width:100%}
+  .footer-cols>div{flex:1 1 100%}
+  .how,.hours{padding-block:40px}
+  .panel{padding:56px 18px 20px}
+  .big-hours{font-size:clamp(46px,15vw,72px)}
+  .qv-in{padding:18px}
+}
+@media (max-width:380px){.hero-stats dd{font-size:24px}.hero-actions{grid-template-columns:1fr}.dividers .divider{padding-inline:13px}}
+@media (max-width:640px){.chip-select:has(#pubFilter)>span{display:none}.chip-select:has(#pubFilter) select{padding-left:6px}}
