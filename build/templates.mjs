@@ -376,7 +376,7 @@ ${header(root, { series: ctx.hasSeries })}
           </label>
         </div>
       </div>
-      ${filterChips(products)}
+      ${filterChips(products, ctx.groupBy)}
       ${dividers ? `<div class="dividers" id="dividers" role="group" aria-label="Filter by ${ctx.groupBy === "cat" ? "category" : "publisher"}">${dividers}</div>` : ""}
       <p class="results" id="results" aria-live="polite">${total} ${total === 1 ? "item" : "items"}</p>
       <div class="grid" id="grid">
@@ -406,12 +406,18 @@ function priceSteps(products) {
   // limits at roughly the 20th, 40th, 60th, 80th and 90th percentile of what's on the shelves
   return [...new Set([0.2, 0.4, 0.6, 0.8, 0.9].map(q => all[Math.floor(q * (all.length - 1))]))].filter(x => x < top);
 }
-function filterChips(products) {
+function filterChips(products, groupBy) {
   const steps = priceSteps(products);
+  // The shelves are tabs by kind of comic (single issues, trade paperbacks, manga); the publishers stay one tap away in a menu beside them.
+  const pubCounts = products.reduce((c, p) => c.set(p.publisher || "Other", (c.get(p.publisher || "Other") || 0) + 1), new Map());
+  const publisherSelect = groupBy === "cat" && pubCounts.size > 1
+    ? `<label class="chip chip-select"><span>Publisher</span><select id="pubFilter" aria-label="Publisher"><option value="">All publishers</option>${[...pubCounts].sort((a, b) => a[0].localeCompare(b[0])).map(([n, c]) => `<option value="${esc(n)}">${esc(n)} (${c})</option>`).join("")}</select></label>`
+    : "";
   return `<div class="chips" id="chips" role="group" aria-label="Narrow the shelves">
         <button type="button" class="chip" data-chip="instock" aria-pressed="false">In stock</button>
         ${products.some(isVariant) ? `<button type="button" class="chip" data-chip="novar" aria-pressed="false">Hide variants</button>` : ""}
         <button type="button" class="chip" data-chip="last" aria-pressed="false">Last copies</button>
+        ${publisherSelect}
         ${steps.length ? `<label class="chip chip-select"><span>Up to</span><select id="maxPrice" aria-label="Maximum price"><option value="0">Any price</option>${steps.map(s => `<option value="${s}">${money(s)}</option>`).join("")}</select></label>` : ""}
         <button type="button" class="link-btn" id="clearFilters" hidden>Clear filters</button>
       </div>`;

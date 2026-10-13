@@ -17,7 +17,7 @@ const DEV = { ORDERS_LIVE: "1", ORDER_API: "http://localhost:8787/orders", ADMIN
 const SOLD_OUT = "the-deadman-5"; // the wanted-list check needs this one sold out
 const PLAN = [
   { name: "the site as deployed", env: {}, checks: ["func", "resilience"] },
-  { name: "the site with the pretend staff service", env: DEV, checks: ["flow", "admin", "filters", "wish", "sharecart", "covers", "paging", "tabs", "fonts", "deal", "sales", "series", "staffdesk", "storeaxe", "labels", "adminaxe", "dlgaxe", "audit2"] },
+  { name: "the site with the pretend staff service", env: DEV, checks: ["flow", "admin", "filters", "publisher", "wish", "sharecart", "covers", "paging", "tabs", "fonts", "deal", "sales", "series", "staffdesk", "storeaxe", "labels", "adminaxe", "dlgaxe", "audit2"] },
   { name: "the same, with one comic sold out", env: DEV, soldOut: true, checks: ["wants"] }
 ];
 const only = process.argv.slice(2);

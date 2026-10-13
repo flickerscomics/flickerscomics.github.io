@@ -115,7 +115,7 @@ function setQty(id, n) {
 
 /* ===================== shelves ===================== */
 const grid = $("grid");
-const filters = { group: "all", q: "", sort: "featured", instock: false, novar: false, last: false, max: 0 };
+const filters = { group: "all", q: "", sort: "featured", instock: false, novar: false, last: false, max: 0, pub: "" };
 const SORTS = ["featured", "price-asc", "price-desc", "title"];
 // The shelf (publisher or category tab), search and sort live in the address, e.g. ?shelf=DC+Comics&sort=price-asc,
 // so a filtered shelf can be shared and the Back button keeps working. Other parameters are left alone.
@@ -126,16 +126,18 @@ function readUrlState() {
   if (SORTS.includes(s)) { filters.sort = s; if ($("sort")) $("sort").value = s; }
   if (g && document.querySelector(`.divider[data-group="${CSS.escape(g)}"]`)) filters.group = g;
   for (const k of ["instock", "novar", "last"]) if (p.get(k) === "1" && document.querySelector(`[data-chip="${k}"]`)) filters[k] = true;
+  const pub = p.get("pub"); if (pub && $("pubFilter") && [...$("pubFilter").options].some(o => o.value === pub)) { filters.pub = pub; $("pubFilter").value = pub; }
   const max = Number(p.get("max")); if (max > 0 && $("maxPrice") && [...$("maxPrice").options].some(o => Number(o.value) === max)) { filters.max = max; $("maxPrice").value = String(max); }
 }
 function writeUrlState() {
   const p = new URLSearchParams(location.search);
-  ["shelf", "q", "sort", "instock", "novar", "last", "max"].forEach(k => p.delete(k));
+  ["shelf", "q", "sort", "instock", "novar", "last", "max", "pub"].forEach(k => p.delete(k));
   if (filters.group !== "all") p.set("shelf", filters.group);
   if (filters.q.trim()) p.set("q", filters.q.trim());
   if (filters.sort !== "featured") p.set("sort", filters.sort);
   for (const k of ["instock", "novar", "last"]) if (filters[k]) p.set(k, "1");
   if (filters.max) p.set("max", String(filters.max));
+  if (filters.pub) p.set("pub", filters.pub);
   replaceQuery(p);
 }
 
@@ -162,18 +164,18 @@ function applyFilters() {
   const found = searchItems(known.map(r => index.get(r.p.id)), q);
   known.forEach(({ c, p }, k) => {
     const ok = inGroup(c) && found.flags[k]
-      && (!filters.instock || p.stock > 0) && (!filters.novar || !index.get(p.id).variant) && (!filters.last || (p.stock >= 1 && p.stock <= 2)) && (!filters.max || p.price <= filters.max);
+      && (!filters.instock || p.stock > 0) && (!filters.novar || !index.get(p.id).variant) && (!filters.last || (p.stock >= 1 && p.stock <= 2)) && (!filters.max || p.price <= filters.max) && (!filters.pub || (p.publisher || "Other") === filters.pub);
     c.hidden = !ok;
     if (ok) shown++;
     grid.appendChild(c);
   });
   document.querySelectorAll("[data-chip]").forEach(b => b.setAttribute("aria-pressed", String(!!filters[b.dataset.chip])));
-  const narrowed = filters.instock || filters.novar || filters.last || filters.max > 0;
+  const narrowed = filters.instock || filters.novar || filters.last || filters.max > 0 || !!filters.pub;
   if ($("clearFilters")) $("clearFilters").hidden = !narrowed;
   $("empty").hidden = shown > 0;
   writeUrlState();
   const tab = filters.group === "all" ? null : document.querySelector(`.divider[data-group="${CSS.escape(filters.group)}"]`);
-  const label = filters.group === "all" ? "" : ` in ${tab && tab.firstChild ? tab.firstChild.textContent : filters.group}`;
+  const label = (filters.group === "all" ? "" : ` in ${tab && tab.firstChild ? tab.firstChild.textContent : filters.group}`) + (filters.pub ? ` from ${filters.pub}` : "");
   const how = found.mode === "close" ? ", close matches" : found.mode === "blurb" ? ", found in descriptions" : "";
   $("results").textContent = shown ? `${shown} ${shown === 1 ? "item" : "items"}${label}${q ? ` matching “${q}”${how}` : ""}${narrowed ? ", filtered" : ""}` : "";
 }
@@ -830,10 +832,11 @@ form.querySelectorAll('input[name="method"]').forEach(r => r.addEventListener("c
 if ($("q")) {
   $("q").addEventListener("input", ev => { filters.q = ev.target.value; applyFilters(); });
   $("sort").addEventListener("change", ev => { filters.sort = ev.target.value; applyFilters(); });
-  $("clearSearch").addEventListener("click", () => { Object.assign(filters, { q: "", instock: false, novar: false, last: false, max: 0 }); $("q").value = ""; if ($("maxPrice")) $("maxPrice").value = "0"; setGroup("all"); $("q").focus(); });
+  $("clearSearch").addEventListener("click", () => { Object.assign(filters, { q: "", instock: false, novar: false, last: false, max: 0, pub: "" }); $("q").value = ""; if ($("maxPrice")) $("maxPrice").value = "0"; if ($("pubFilter")) $("pubFilter").value = ""; setGroup("all"); $("q").focus(); });
   document.querySelectorAll("[data-chip]").forEach(b => b.addEventListener("click", () => { filters[b.dataset.chip] = !filters[b.dataset.chip]; applyFilters(); }));
   if ($("maxPrice")) $("maxPrice").addEventListener("change", ev => { filters.max = Number(ev.target.value) || 0; applyFilters(); });
-  if ($("clearFilters")) $("clearFilters").addEventListener("click", () => { Object.assign(filters, { instock: false, novar: false, last: false, max: 0 }); if ($("maxPrice")) $("maxPrice").value = "0"; applyFilters(); });
+  if ($("pubFilter")) $("pubFilter").addEventListener("change", ev => { filters.pub = ev.target.value; applyFilters(); });
+  if ($("clearFilters")) $("clearFilters").addEventListener("click", () => { Object.assign(filters, { instock: false, novar: false, last: false, max: 0, pub: "" }); if ($("maxPrice")) $("maxPrice").value = "0"; if ($("pubFilter")) $("pubFilter").value = ""; applyFilters(); });
 }
 document.addEventListener("keydown", ev => {
   if (ev.key !== "/" || ev.ctrlKey || ev.metaKey || ev.altKey || !$("q")) return;
