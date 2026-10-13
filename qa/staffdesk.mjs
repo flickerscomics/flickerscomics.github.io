@@ -57,7 +57,7 @@ const copied = await page.evaluate(() => window.__copied);
 check("Copy message gives a ready-to-send text with the order number", copied.includes(today.orderId) && copied.startsWith("Hi Todd"), copied);
 await page.$eval('[data-oact="print"]', b => b.click()); await sleep(150);
 const slip = await page.evaluate(() => ({ html: window.__printed, on: window.__printClass }));
-check("Print slip builds one slip with the comics to gather", slip.on && slip.html.includes(today.orderId) && slip.html.includes("Todd Today") && slip.html.includes(fullTitle(inStock[0])) && slip.html.includes("☐"));
+check("Print slip builds one till-style receipt with the comics on it", slip.on && slip.html.includes(today.orderId) && slip.html.includes("Todd Today") && slip.html.includes(fullTitle(inStock[0])) && slip.html.includes("TOTAL") && slip.html.includes("rc-head"));
 await page.evaluate(() => window.dispatchEvent(new Event("afterprint"))); await sleep(100);
 check("the slip sheet is tidied away after printing", (await page.$(".slips")) === null && !(await page.evaluate(() => document.body.classList.contains("printing-slips"))));
 await page.evaluate(() => { const e = document.getElementById("oSearch"); e.value = ""; e.dispatchEvent(new Event("input", { bubbles: true })); }); await sleep(200);

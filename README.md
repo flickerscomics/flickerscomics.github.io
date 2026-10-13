@@ -133,8 +133,10 @@ order (what was bought and when, never who by) that outlives the order itself, s
 - **Finding and working orders** (Orders tab): search by order number, name or phone number (any way it's written); narrow to *Not paid*, *Due today*
   or *To post*; a strip at the top counts today's collections and any earlier ones not picked up. **Copy message** gives a ready-to-send text for
   the order's stage ("Your order FC-… is ready to collect on Mon 5 Oct…"); the Wanted tab has the same for people waiting on a comic.
-  **Print slip** (one order) or **Print slips** (everything shown) gives a page per order listing the comics to gather, with tick boxes, who it's for,
-  how it goes out, the deal and the total.
+  **Print slip** (one order) or **Print slips** (everything shown) prints each order like a till receipt: an 80 mm roll (72 mm printable), monospaced type, dashed rules,
+  with the shop name, order number, customer, how it goes out, the comics with prices lined up on the right, the deal, postage, total and whether it's paid. In the
+  print dialog choose your receipt printer (or Save as PDF); each order is its own page so the roll is cut between them. For a 58 mm printer, change `72mm` and the
+  `80mm` page size in `src/css/admin.css`.
 - **Reorder** (Reorder tab): comics that are sold out, down to their last two, or wanted by more people than there are copies, with who's waiting,
   what sold over the last eight weeks, and a suggested number (enough for the people waiting plus about two weeks of sales, less what's on the shelf).
   Change numbers, untick rows, then copy the list or download it as a spreadsheet. Things customers requested that you don't stock are listed below.

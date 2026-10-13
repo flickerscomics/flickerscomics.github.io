@@ -1,0 +1,15 @@
+import { launch, BASE } from "./lib.mjs";
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const browser = await launch(); const page = await browser.newPage();
+await page.setViewport({ width: 420, height: 900, deviceScaleFactor: 2 });
+await page.goto(BASE + "/admin/", { waitUntil: "networkidle0" });
+await page.type("#u", "owner"); await page.type("#pw", "owner-password-1"); await page.click("#loginBtn");
+await page.waitForSelector("#panel .arow");
+await page.evaluate(() => { window.print = () => {}; });
+await page.evaluate(() => [...document.querySelectorAll("[data-tab]")].find(b => /orders/i.test(b.textContent))?.click());
+await page.waitForSelector("details.order"); await page.click("#printBtn"); await sleep(300);
+await page.emulateMediaType("print"); await sleep(200);
+const els = await page.$$(".slip");
+await els[0].screenshot({ path: process.argv[2] + "/receipt-1.png" });
+await els[1].screenshot({ path: process.argv[2] + "/receipt-2.png" });
+await browser.close();
