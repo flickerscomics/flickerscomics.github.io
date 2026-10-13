@@ -130,7 +130,7 @@ export function orderEmbed(o, cfg = {}) {
   const fields = [
     { name: "Customer", value: cut(escMd(o.name), 200), inline: true },
     { name: "Phone", value: o.phone ? cut(escMd(o.phone), 100) : "—", inline: true },
-    { name: "Payment", value: o.paid ? (o.payment && o.payment.state === "paid" ? `Paid via Fleeca${o.payment.payerName ? " by " + cut(escMd(o.payment.payerName), 60) : ""}` : "Paid") : "Not paid yet", inline: true },
+    { name: "Payment", value: o.payment && o.payment.sandbox ? "SANDBOX test payment, no money moved. NOT paid" : o.paid ? (o.payment && o.payment.state === "paid" ? `Paid via Fleeca${o.payment.payerName ? " by " + cut(escMd(o.payment.payerName), 60) : ""}` : "Paid") : "Not paid yet", inline: true },
     collect
       ? { name: "Collect on", value: `${o.collectDate}${cfg.openHour != null ? ", " + hoursText(cfg) : ""}` }
       : { name: "Post to", value: cut(escMd(o.address), 1000) },

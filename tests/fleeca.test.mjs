@@ -15,7 +15,7 @@ const CONFIG = { postage: 1000, openHour: 20, closeHour: 22, collectDaysAhead: 1
 const today = () => new Date().toISOString().slice(0, 10);
 const baseEnv = (over = {}) => ({
   USERS: new FakeKV(), SESSION_SECRET: "test-secret-0123456789", SETUP_KEY: "k", GITHUB_TOKEN: "x", GITHUB_REPO: "o/r", GITHUB_BRANCH: "main",
-  ALLOWED_ORIGINS: ORIGIN, SITE_URL: ORIGIN, ORDERS_ENABLED: "true", DISCORD_WEBHOOK_URL: HOOK, FLEECA_PAYMENTS: "true", FLEECA_MODE: "0", FLEECA_API_KEY: KEY, ...over
+  ALLOWED_ORIGINS: ORIGIN, SITE_URL: ORIGIN, ORDERS_ENABLED: "true", DISCORD_WEBHOOK_URL: HOOK, FLEECA_PAYMENTS: "true", FLEECA_MODE: "1", FLEECA_API_KEY: KEY, ...over
 });
 const buy = (over = {}) => ({ name: "Jamie Reyes", phone: "555 0142", method: "collect", collectDate: today(), items: [{ id: "a", qty: 1 }], ...over });
 
@@ -77,7 +77,7 @@ test("with payments on, an order gets a Fleeca link, holds its comics and says n
   assert.equal(r.paymentUrl, `https://banking.gta.world/gateway/${pay.payment_id}`);
   assert.equal(r.paid, false);
   assert.equal(pay.amount, r.total, "Fleeca is asked for the order total");
-  assert.equal(pay.mode, "sandbox");
+  assert.equal(pay.mode, "live");
   assert.equal(pay.description, `Flickers Comics order ${r.orderId}`);
   assert.equal(fl.calls[0].auth, `Bearer ${KEY}`);
   assert.equal(stockOf(st, "a"), 4, "comics are held while the customer pays");
@@ -167,9 +167,9 @@ test("a payment for the wrong amount, or in the wrong mode, is not accepted as p
   assert.equal(o.paid, false);
   assert.match(o.payment.flag, /order is \$500/);
   assert.equal(st.posts.filter(p => /NOT marked paid/.test(p.content || "")).length, 1, "staff are told");
-  await webhook(env, news(pay, { mode: "live" }));
+  await webhook(env, news(pay, { mode: "sandbox" }));
   o = storedOrder(env, r.orderId);
-  assert.equal(o.paid, false, "a live payment can't pay a sandbox order");
+  assert.equal(o.paid, false, "a sandbox payment can't pay a live order");
   assert.equal(o.payment.state, "awaiting");
   await webhook(env, news(pay)); // the right one still works afterwards
   assert.equal(storedOrder(env, r.orderId).paid, true);
@@ -191,7 +191,7 @@ test("a failed payment cancels the order and puts the comics back; pending just 
   const again = await webhook(env, news(pay, { status: "payment_failed" }));
   assert.equal(again.status, 200);
   assert.equal(stockOf(st, "a"), 5, "a repeat doesn't put them back twice");
-  assert.equal((await webhook(env, { payment_id: crypto.randomUUID(), status: "payment_successful", amount: 5, mode: "sandbox" })).status, 200, "acknowledged and ignored");
+  assert.equal((await webhook(env, { payment_id: crypto.randomUUID(), status: "payment_successful", amount: 5, mode: "live" })).status, 200, "acknowledged and ignored");
 });
 
 test("the return page sends the customer back to the shop with what we know, and never marks anything paid by itself", async () => {
@@ -320,4 +320,19 @@ test("orders staff key in themselves never go through Fleeca", async () => {
   assert.equal(r.status, 200);
   assert.equal(fl.calls.length, 0);
   assert.equal(orderPosts(st).length, 1);
+});
+
+test("in sandbox mode a 'successful' payment is recorded but never marks the order paid or counts as a sale", async () => {
+  const { st, fl } = world(), env = baseEnv({ FLEECA_MODE: "0" });
+  const { r, pay } = await ordered(env, fl);
+  assert.equal(pay.mode, "sandbox");
+  await webhook(env, news(pay));
+  const o = storedOrder(env, r.orderId);
+  assert.equal(o.paid, false);
+  assert.equal(o.payment.state, "paid");
+  assert.equal(o.payment.sandbox, true);
+  assert.ok(!env.USERS.meta.has(`sale:${r.orderId}`));
+  assert.match(orderPosts(st)[0].embeds[0].fields.find(f => f.name === "Payment").value, /SANDBOX.*NOT paid/);
+  const res = await back(env, pay.payment_id);
+  assert.equal(res.headers.get("Location"), `${ORIGIN}/?order=${r.orderId}&status=paid`);
 });

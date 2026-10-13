@@ -13,7 +13,7 @@ SITE_URL = "https://flickerscomics.github.io"
 # Public order endpoint. Keep "false" until the shop is ready to take real orders (docs/DISCORD.md).
 ORDERS_ENABLED = "true"
 # Fleeca online payments (docs/FLEECA.md). Needs the secret FLEECA_API_KEY. Keep "false" until the Merchant Center addresses are set.
-FLEECA_PAYMENTS = "false"
+FLEECA_PAYMENTS = "true"
 # 0 = sandbox (nothing is charged), 1 = live
 FLEECA_MODE = "0"
 # Optional: the id of a Discord role to ping on every new order.

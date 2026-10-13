@@ -75,14 +75,16 @@ export async function settle(env, key, o, p) {
     }
     if (late) pay.flag = late;
     Object.assign(pay, { state: "paid", status, payerName: String(p.payer_name || "").slice(0, 100), payerRouting: String(p.payer_routing || "").slice(0, 20), paidAt: p.paid_at || new Date().toISOString() });
-    o.paid = true; note(o, "paid via Fleeca");
+    const sandbox = mode === 0; // a sandbox payment moves no money, so it must never make a real order "paid"
+    if (sandbox) { pay.sandbox = true; pay.flag = pay.flag || "Sandbox payment: no money moved. Not marked paid."; note(o, "sandbox payment (no money moved)"); }
+    else { o.paid = true; note(o, "paid via Fleeca"); }
     await env.USERS.delete(`await:${o.id}`);
     const cfg = await shopConfig(env);
     if (o.discordId) { const r = await editDiscord(env, o, cfg); o.discord = r.ok ? "sent" : `failed: ${r.reason}`; }
     else { const sent = await postToDiscord(env, o, cfg); o.discord = sent.ok ? "sent" : `failed: ${sent.reason}`; if (sent.id) o.discordId = sent.id; }
     const low = o.lowAt; delete o.lowAt;
     await save(env, key, o);
-    await recordSale(env, o).catch(() => {}); // an online order is a sale only once it's paid
+    if (o.paid) await recordSale(env, o).catch(() => {}); // an online order is a sale only once it's really paid
     if (late) await staffAlert(env, `Order ${o.id}: ${late}`);
     if (low) await announceLowStock(env, low.map(([id, b]) => ({ id, stock: b })), low.map(([id, , a]) => ({ id, stock: a }))).catch(() => {});
     return "paid";

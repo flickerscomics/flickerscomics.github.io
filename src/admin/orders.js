@@ -7,7 +7,7 @@ import { printSlips } from "./slips.js";
 /* ---------- orders tab ---------- */
 const orderStatus = o => o.status || "new";
 const awaiting = o => !!o.payment && o.payment.state === "awaiting"; // an online order the customer hasn't paid for on Fleeca yet
-const payText = o => { const p = o.payment; return o.paid ? (p && p.state === "paid" ? `Paid via Fleeca${p.payerName ? " by " + p.payerName : ""}` : "Paid") : awaiting(o) ? "Waiting for the customer to pay on Fleeca" : "Not paid yet"; };
+const payText = o => { const p = o.payment; if (p && p.sandbox) return "Sandbox test payment: no money moved, not paid"; return o.paid ? (p && p.state === "paid" ? `Paid via Fleeca${p.payerName ? " by " + p.payerName : ""}` : "Paid") : awaiting(o) ? "Waiting for the customer to pay on Fleeca" : "Not paid yet"; };
 const STATUS_NAME = o => awaiting(o) ? "Awaiting payment" : ({ new: "New", ready: "Ready", done: o.method === "post" ? "Posted" : "Collected", cancelled: "Cancelled" })[orderStatus(o)];
 const HISTORY_NAME = (change, o) => ({ new: "Reopened", ready: "Marked ready", done: o.method === "post" ? "Marked posted" : "Marked collected", cancelled: "Cancelled", paid: "Marked paid", unpaid: "Marked unpaid", entered: "Entered" })[change] || change;
 const ORDER_FILTERS = [

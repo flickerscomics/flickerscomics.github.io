@@ -74,7 +74,7 @@ Fleeca is GTA World's bank. Reference: `docs/FLEECA.md`. The Worker uses the V2 
    (Use the Worker's real address if it differs. The addresses can be changed later without a new key.)
 2. Store the key as a secret. From the `worker` folder, run `npx wrangler secret put FLEECA_API_KEY` and paste it when asked. It never goes in the repo or the site.
 3. In `worker/wrangler.toml` set `FLEECA_PAYMENTS = "true"` and keep `FLEECA_MODE = "0"` (sandbox: nothing is charged, every payment succeeds). Deploy with `npx wrangler deploy`.
-4. Test one order end to end in sandbox: order on the site, pay on Fleeca, check the order shows as paid in the staff area and in Discord.
+4. Test one order end to end in sandbox: order on the site, pay on Fleeca. The order is posted to Discord as a "SANDBOX test payment, NOT paid" (a sandbox payment moves no money, so it never marks an order paid or counts as a sale). Staff cancel the test order afterwards.
 5. In `data/config.json` set `"payOnline": true` (the checkout button then says "Pay with Fleeca") and commit.
 6. When happy, set `FLEECA_MODE = "1"` and deploy again. That is live: real money moves.
 
