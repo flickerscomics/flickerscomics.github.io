@@ -534,3 +534,19 @@ legend{margin-bottom:12px;padding:0;font-family:var(--font-display);font-size:24
 .series-follow{display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px;margin:16px 0 0}
 .series-link{margin:18px 0 0;font-size:15px;color:var(--ink-soft)}
 .series-link a{font-weight:700;color:var(--ink)}
+
+/* ---------- ticker strip and back-to-top ---------- */
+.ticker{overflow:hidden;border-block:3px solid var(--ink-fixed);background:var(--yellow);color:var(--ink-fixed);font-family:var(--font-display);font-size:clamp(17px,2.4vw,22px);letter-spacing:.07em;text-transform:uppercase;white-space:nowrap}
+.ticker-track{display:flex;width:max-content;padding-block:9px 7px}
+.ticker-set{display:flex;flex:none}
+.ticker-set span{display:flex;align-items:center}
+.ticker-set span::after{content:"";width:9px;height:9px;margin-inline:clamp(18px,3vw,34px);background:var(--magenta);border:2px solid var(--ink-fixed);transform:rotate(45deg)}
+@media (prefers-reduced-motion:no-preference){.ticker-track{animation:ticker 48s linear infinite}.ticker:hover .ticker-track{animation-play-state:paused}}
+@media (prefers-reduced-motion:reduce){.ticker-track{width:auto;flex-wrap:wrap;justify-content:center;white-space:normal}.ticker-set:last-child{display:none}}
+@keyframes ticker{to{transform:translateX(-50%)}}
+.to-top{position:fixed;right:max(16px,env(safe-area-inset-right));bottom:max(16px,env(safe-area-inset-bottom));z-index:40;display:grid;place-items:center;width:44px;height:44px;padding:0;border:3px solid var(--ink-fixed);border-radius:50%;background:var(--yellow);color:var(--ink-fixed);box-shadow:3px 3px 0 var(--ink-fixed);cursor:pointer}
+.to-top[hidden]{display:none}
+.to-top:hover{transform:translateY(-2px)}
+@media (prefers-reduced-motion:no-preference){.to-top{transition:transform .15s ease}}
+@media print{.ticker,.to-top{display:none}}
+@media (forced-colors:active){.ticker{border-color:CanvasText}.to-top{border-color:ButtonText}}

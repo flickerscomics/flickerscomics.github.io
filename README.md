@@ -28,7 +28,7 @@ and a cover nothing uses any more is removed when you publish.
 
 To change many comics at once, tick them (or tick **Select all**, which respects your search; hold Shift to
 select a range), then use the yellow bar to set a price, raise or lower prices by a percentage or an amount,
-set stock, or delete them. Nothing goes live until you publish, and **Discard** undoes everything.
+set stock, **set labels** (add or remove New, Variant, Exclusive and "New this week" on all of them at once; only three comics show in New this week, so adding more puts the selected ones first), or delete them. Nothing goes live until you publish, and **Discard** undoes everything.
 If your session ends while you have unpublished changes, you are asked to sign in again and your changes are kept.
 
 Above the list you can **Show** only low stock (1 or 2 left), sold-out comics, or comics you've changed but not yet published,
@@ -123,6 +123,8 @@ takings by week and how long orders take to hand over, for the last 4 weeks up t
 order (what was bought and when, never who by) that outlives the order itself, so the history lasts after finished orders are deleted.
 
 ## Staff tools
+
+- **Daily briefing** (Discord): at 19:00 UTC (8 PM UTC+1) the Worker posts "Tyler here, here's today's briefing" with what needs doing (open orders, collections due, orders to post, payments to check, comics back in stock with people waiting, nearly gone, sold out), pinging the Staff role. Orders that go overdue get one ping each in the orders channel. Details in `docs/DISCORD.md`.
 
 - **Take an order** (Orders tab → **+ Take an order**): for phone orders and people at the counter. Search for the comics, add them, enter a name
   (a phone number is optional), and choose *Counter sale: handed over now*, *Collect later* or *Post it*. It becomes a normal order: the shelf is

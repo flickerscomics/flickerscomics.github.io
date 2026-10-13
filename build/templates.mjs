@@ -47,11 +47,17 @@ ${script ? `<script type="module" src="${root}${script}"></script>` : ""}
 }
 
 /* ---------- chrome ---------- */
+/* The bold strip under the hero. Decorative (it only repeats facts that are already on the page), so it's hidden from screen readers. */
+function ticker(cfg, hasNew) {
+  const items = [hasNew ? "New this week" : "Fresh on the shelves", "Collect in store for free", dealOn(cfg.deal) ? dealName(cfg.deal) : "", cfg.payOnline ? "Pay with Fleeca" : "", "Open every day"].filter(Boolean);
+  return `<span class="ticker-set">${items.map(t => `<span>${esc(t)}</span>`).join("")}</span>`;
+}
+
 function topStrip(cfg) {
   return `<section class="topstrip" aria-label="Opening hours and postage">
   <div class="wrap topstrip-in">
     <span class="status" id="stripStatus"><span class="status-dot" aria-hidden="true"></span><span id="stripStatusText">Open every day, ${hoursText(cfg)}</span></span>
-    <span class="strip-extra"><span>Collect in store for free</span><span>Postage ${money(cfg.postage)}</span>${dealOn(cfg.deal) ? `<span class="strip-deal">${esc(dealName(cfg.deal))}</span>` : ""}</span>
+    <span class="strip-extra"><span>Collect in store for free</span><span>Postage ${money(cfg.postage)}</span>${cfg.payOnline ? "<span>Pay with Fleeca</span>" : ""}${dealOn(cfg.deal) ? `<span class="strip-deal">${esc(dealName(cfg.deal))}</span>` : ""}</span>
   </div>
 </section>`;
 }
@@ -255,7 +261,8 @@ function dialogs(cfg) {
   </div>
 </dialog>
 
-<div class="toast" id="toast" role="status" aria-live="polite" hidden></div>`;
+<div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+<button type="button" class="to-top" id="toTop" aria-label="Back to the top" hidden><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><path d="M12 19V5M5 12l7-7 7 7" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></button>`;
 }
 
 
@@ -321,12 +328,15 @@ ${header(root, { series: ctx.hasSeries })}
           <li><strong>Open every day</strong> ${hoursText(cfg)}</li>
           <li><strong>Collect in store</strong> free</li>
           <li><strong>Postage</strong> ${money(cfg.postage)}</li>
+          ${cfg.payOnline ? "<li><strong>Pay online</strong> with Fleeca</li>" : ""}
           ${dealOn(cfg.deal) ? `<li><strong>${esc(dealName(cfg.deal))}</strong> cheapest one's on us</li>` : ""}
         </ul>
       </div>
       ${hero.length ? `<div class="rack" id="rack" role="group" aria-label="New this week">${burst}${fan}<span class="rack-sticker" aria-hidden="true">New this week!</span></div>` : ""}
     </div>
   </section>
+
+  <div class="ticker" aria-hidden="true"><div class="ticker-track">${ticker(cfg, hero.length > 0).repeat(2)}</div></div>
 
   <section class="shop" id="shop" aria-labelledby="shopTitle">
     <div class="wrap">

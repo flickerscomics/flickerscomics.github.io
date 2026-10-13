@@ -524,6 +524,20 @@ function handlePaymentReturn() {
   }
 }
 
+/* ===================== back to top ===================== */
+function initToTop() {
+  const btn = $("toTop");
+  if (!btn) return;
+  let shown = false;
+  const update = () => { const want = window.scrollY > 900; if (want !== shown) { shown = want; btn.hidden = !want; } };
+  window.addEventListener("scroll", update, { passive: true });
+  btn.addEventListener("click", () => {
+    window.scrollTo({ top: 0, behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+    const home = document.querySelector("main"); if (home) { home.setAttribute("tabindex", "-1"); home.focus({ preventScroll: true }); }
+  });
+  update();
+}
+
 /* ===================== saved for later (wishlist) ===================== */
 // Kept in this browser only. Remembers each comic's stock when it was saved, so a sold-out comic can be flagged "Back in stock".
 const SAVED_KEY = "flickers-saved-v1";
@@ -847,6 +861,7 @@ try {
   syncSaved();
   applyFilters();
   handlePaymentReturn();
+  initToTop();
   enableTracking();
   showWantButtons();
   renderCartUI();
