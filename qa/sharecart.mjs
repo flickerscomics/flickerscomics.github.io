@@ -43,7 +43,7 @@ check("reloading doesn't add them again", (await cartCount(b)) === 3);
 const c = await fresh();
 await c.goto(BASE + "/", { waitUntil: "networkidle0" });
 await c.$eval(`[data-add="${A.id}"]`, x => x.click()); await sleep(200);
-await c.goto(`${BASE}/?shelf=${encodeURIComponent(A.publisher || "DC Comics")}&cart=${A.id}:1`, { waitUntil: "networkidle0" }); await sleep(400);
+await c.goto(`${BASE}/?shelf=${encodeURIComponent(shop.groupBy === "cat" ? A.cat : (A.publisher || "Other"))}&cart=${A.id}:1`, { waitUntil: "networkidle0" }); await sleep(400);
 check("shared comics are added to what they already had", (await cartCount(c)) === 2, `${await cartCount(c)}`);
 check("other address parameters survive", c.url().includes("shelf="), c.url());
 

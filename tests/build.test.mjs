@@ -44,11 +44,12 @@ test("every page has a title, description and working local links", () => {
 test("the shelf is in the HTML, not built by script", () => {
   const home = fs.readFileSync(path.join(DIST, "index.html"), "utf8");
   assert.equal((home.match(/<article class="card"/g) || []).length, products.length);
-  assert.ok(home.includes(esc(fullTitle(products[0]))));
+  if (products.length) assert.ok(home.includes(esc(fullTitle(products[0]))));
 });
 
 test("comic pages carry product data for search engines and link previews", () => {
   const p = products.find(x => x.image) || products[0];
+  if (!p) return; // an empty shelf has no comic pages
   const html = fs.readFileSync(path.join(DIST, "comic", p.id, "index.html"), "utf8");
   assert.match(html, /"@type":"Product"/);
   assert.match(html, /<link rel="canonical" href="https:\/\/[^"]+\/comic\//);
@@ -107,6 +108,6 @@ test("series pages list every issue, and each issue links back to its series", (
     assert.ok(index.includes(`href="../series/${slug}/"`), "the list links to it");
   }
   const single = products.find(p => !series.some(l => l.includes(p)));
-  assert.ok(!fs.readFileSync(path.join(DIST, "comic", single.id, "index.html"), "utf8").includes("See the whole series"), "a one-issue title has no series link");
+  if (single) assert.ok(!fs.readFileSync(path.join(DIST, "comic", single.id, "index.html"), "utf8").includes("See the whole series"), "a one-issue title has no series link");
   assert.match(fs.readFileSync(path.join(DIST, "index.html"), "utf8"), /<a href="series\/">Series<\/a>/, "the menu links to the list");
 });

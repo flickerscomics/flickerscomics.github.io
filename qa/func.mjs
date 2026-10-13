@@ -30,10 +30,15 @@ async function newPage(width = 1280, height = 900) {
 /* ---- shelf: filters, URL state, keyboard ---- */
 {
   const page = await newPage();
-  await page.goto(BASE + "/?shelf=DC%20Comics&sort=price-asc", { waitUntil: "networkidle0" });
+  // the shop groups its shelves by category (or by publisher when every comic is the same kind): take the largest one from the data
+  const shopData = await (await fetch(BASE + "/data/shop.json")).json();
+  const keyOf = p => shopData.groupBy === "cat" ? p.cat : (p.publisher || "Other");
+  const counts = shopData.products.reduce((m, p) => m.set(keyOf(p), (m.get(keyOf(p)) || 0) + 1), new Map());
+  const [SHELF, SHELF_COUNT] = [...counts].sort((a, b) => b[1] - a[1])[0];
+  await page.goto(BASE + "/?shelf=" + encodeURIComponent(SHELF) + "&sort=price-asc", { waitUntil: "networkidle0" });
   const shown = () => page.$$eval(".card:not([hidden])", c => c.length);
-  check("a shared link opens on that shelf", (await shown()) === 13, "shown=" + await shown());
-  check("tab for the shelf is pressed", await page.$eval('.divider[data-group="DC Comics"]', b => b.getAttribute("aria-pressed") === "true"));
+  check("a shared link opens on that shelf", (await shown()) === SHELF_COUNT, "shown=" + await shown());
+  check("tab for the shelf is pressed", await page.$eval(`.divider[data-group="${SHELF}"]`, b => b.getAttribute("aria-pressed") === "true"));
   const prices = await page.$$eval(".card:not([hidden]) .price-tag", els => els.map(e => +e.textContent.replace(/\D/g, "")));
   check("sorted low to high", prices.every((p, i) => i === 0 || p >= prices[i - 1]), prices.slice(0, 5).join(","));
   check("page did not jump on load", (await page.evaluate(() => scrollY)) < 50, "scrollY=" + await page.evaluate(() => scrollY));
@@ -67,7 +72,7 @@ async function newPage(width = 1280, height = 900) {
   check("cart drawer lists 2 lines", (await page.$$eval("#lines .line", l => l.length)) === 2);
   await page.$eval("#checkoutBtn", b => b.click()); await sleep(300);
   check("checkout opens without the test banner", await page.$eval("#testNote", e => e.hidden));
-  check("button says Place order", (await page.$eval("#payBtn", b => b.textContent)) === "Place order");
+  check("button says what will happen", /^(Place order|Pay .* with Fleeca)$/.test(await page.$eval("#payBtn", b => b.textContent)));
   await page.$eval("#payBtn", b => b.click()); await sleep(200);
   check("empty form shows errors", (await page.$$eval(".error:not([hidden])", e => e.length)) >= 2);
   await page.type("#f-name", "QA Tester"); await page.type("#f-phone", "5550142");

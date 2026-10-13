@@ -16,7 +16,7 @@ import { orderStatus, isAwaiting, findOrderKey, postToDiscord, editDiscord, ttlS
 import { getPayment, verifySignature, modeNumber, fleecaMode } from "./fleeca.js";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const ABANDON_MS = 30 * 60 * 1000, LONG_PENDING_MS = 2 * 3600 * 1000, SWEEP_BATCH = 3, RECHECK_MS = 20 * 1000;
+const ABANDON_MS = 30 * 60 * 1000, LONG_PENDING_MS = 2 * 3600 * 1000, SWEEP_BATCH = 3, RECHECK_MS = 20 * 1000, RETURN_WAIT_MS = 1500;
 
 const save = (env, key, o) => env.USERS.put(key, JSON.stringify(o), { expirationTtl: ttlSeconds(o) });
 const note = (o, change) => { o.history = [...(o.history || []), { at: new Date().toISOString(), by: "Fleeca", change }].slice(-30); };
@@ -58,6 +58,8 @@ export async function settle(env, key, o, p) {
 
   if (status === "payment_successful") {
     if (pay.state === "paid") return "paid"; // the same webhook again
+    const fresh = await env.USERS.get(key); // another request (the webhook and the return page arrive together) may have just finished it
+    if (fresh && (JSON.parse(fresh).payment || {}).state === "paid") return "paid";
     const mode = modeNumber(p.mode);
     const wrong = Number(p.amount) !== o.total ? `Fleeca says $${Number(p.amount)} was paid but the order is $${o.total}`
       : mode === null || mode !== modeNumber(pay.mode) || mode !== fleecaMode(env) ? "the payment's mode (sandbox or live) doesn't match this order" : "";
@@ -118,7 +120,12 @@ export async function handleReturn(env, url) {
   const go = query => new Response(null, { status: 303, headers: { Location: `${site}/?${query}`, "Cache-Control": "no-store" } });
   const hit = await loadByPayment(env, url.searchParams.get("payment_id"));
   if (!hit) return go("payment=unknown");
-  const { key, o } = hit;
+  let { key, o } = hit;
+  if (isAwaiting(o)) { // Fleeca sends the webhook and the customer's browser at about the same moment: give the webhook a moment to land first
+    await new Promise(r => setTimeout(r, RETURN_WAIT_MS));
+    const again = await env.USERS.get(key);
+    if (again) o = JSON.parse(again);
+  }
   if (isAwaiting(o) && env.FLEECA_API_KEY && Date.now() - (o.payment.checkedAt || 0) > RECHECK_MS) { // at most one Fleeca call per order every 20 seconds
     o.payment.checkedAt = Date.now();
     try { await save(env, key, o); const p = await getPayment(env, o.payment.id); if (p) await settle(env, key, o, p); }

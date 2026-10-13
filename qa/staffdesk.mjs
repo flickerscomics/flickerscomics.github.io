@@ -85,7 +85,8 @@ await page.click("#ctGo"); await sleep(1500);
 check("the dialog closes and says what happened", !(await page.$eval("#counterDlg", d => d.open)) && /created/.test(await page.$eval("#aMsg", e => e.textContent)), await page.$eval("#aMsg", e => e.textContent));
 check("a counter sale lands in the Archive as handed over, marked Counter", /Counter/.test(await page.$eval("details.order summary", s => s.textContent)) && /Collected/.test(await page.$eval("details.order summary", s => s.textContent)) && /Paid/.test(await page.$eval("details.order summary", s => s.textContent)));
 const stockAfter = Object.fromEntries((await json("/stock", null, owner)).products.map(p => [p.id, p.stock]));
-check("and the shelf went down by the copies sold", stockAfter[want.id] < stockBefore[want.id], `${stockBefore[want.id]} → ${stockAfter[want.id]}`);
+const dropped = Object.keys(stockAfter).filter(id => stockAfter[id] < stockBefore[id]); // the first match for the search is the one added
+check("and the shelf went down by the copies sold", dropped.length === 1, `${dropped.map(id => stockBefore[id] + " → " + stockAfter[id])}`);
 await page.$eval("details.order summary", s => s.click());
 check("the order shows who keyed it in", /Keyed in by owner/.test(await page.$eval("details.order", e => e.textContent)));
 

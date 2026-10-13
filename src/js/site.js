@@ -512,11 +512,14 @@ function handlePaymentReturn() {
     store.set("flickers-pending-order", null);
     co.showModal();
     showDone({ ...pending, test: false, paid: true });
+  } else if (status === "paid") {
+    // paid, but this browser doesn't hold the order (a different device or cleared storage): the order is placed all the same
+    toast(`Payment received. Thank you! Your order number is ${id}. You can follow it under Track order.`);
   } else if (status === "pending") {
     // The order is placed and its comics are held; Fleeca just hasn't confirmed yet. Don't tell a paying customer it failed.
     if (pending && pending.id === id) { cart = {}; saveCart(); renderCartUI(); store.set("flickers-pending-order", null); }
     toast(`We're confirming your payment with Fleeca. Check Track order in a minute with order number ${id}.`);
-  } else if (status !== "paid") {
+  } else {
     toast("Your payment didn't go through, so nothing was charged. Your cart is still here.");
   }
 }

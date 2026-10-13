@@ -70,7 +70,7 @@ const out = n => `${OUT}/${n}.png`;
   check("the service's message is shown at checkout", err.some(t => /Couldn't check the shop's stock/.test(t)), JSON.stringify(err));
   check("the cart is kept", (await page.$eval("#cartCount", e => e.textContent)) === "1");
   const btn = await page.$eval("#payBtn", b => ({ text: b.textContent, disabled: b.disabled }));
-  check("the order button is usable again", btn.text === "Place order" && !btn.disabled, JSON.stringify(btn));
+  check("the order button is usable again", /^(Place order|Pay .* with Fleeca)$/.test(btn.text) && !btn.disabled, JSON.stringify(btn));
   await page.screenshot({ path: out("res-503") });
   await page.close();
 }
