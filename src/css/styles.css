@@ -591,7 +591,6 @@ legend{margin-bottom:12px;padding:0;font-family:var(--font-display);font-size:24
 .hero-facts{gap:8px 10px;margin-top:20px}
 .hero-facts li{padding:6px 12px;border:1px solid var(--hair);border-radius:999px;font-size:13.5px}
 .fan .cover{border-radius:10px}
-.burst{filter:drop-shadow(0 20px 50px var(--glow))}
 
 /* type tiles */
 .types{padding-block:clamp(28px,4vw,48px) 0}
