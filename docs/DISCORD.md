@@ -108,3 +108,11 @@ Without the secret the workflow does nothing. To stop the posts, delete the secr
 - **Customer details are stored** (name, phone, address) while the order is kept. Delete a Discord message by hand if you want it gone there.
 - **Trying it locally without Discord:** `npm run dev:api` prints each order's Discord message in the terminal instead of sending it.
   Build the site with `ORDERS_LIVE=1 ORDER_API=http://localhost:8787/orders ADMIN_API=http://localhost:8787 npm run build`, then `npm run serve`.
+
+## The daily briefing
+
+Every day at **19:00 UTC (8 PM UTC+1)** the Worker posts one "Daily briefing" message to the same channel: open orders (new and ready, and the oldest),
+collections due or overdue, orders to post, orders not paid yet, payments to check, comics that are back in stock with people waiting, comics nearly gone,
+how many are sold out, special requests, and online orders waiting on Fleeca. It posts even on a quiet day. If `DISCORD_PING_ROLE` is set it pings
+the role only when something is due, needs checking, or has people waiting. The time is the cron in `worker/wrangler.toml` (`0 19 * * *`, always UTC,
+so after the clocks go back it is 7 PM in London); change it there and deploy. Code: `worker/src/briefing.js`. It reads the newest 30 orders, so on a very busy day the footer says so.

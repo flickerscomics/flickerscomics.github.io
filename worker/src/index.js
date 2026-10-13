@@ -19,6 +19,7 @@
 import { HttpError, bad } from "./http.js";
 import { placeOrder, staffOrder, lookupOrder, listOrders, sendTestMessage, updateOrder } from "./orders.js";
 import { createWant, listWants, updateWant, deleteWant, announceRestocks, announceNewIssues } from "./wants.js";
+import { sendBriefing } from "./briefing.js";
 import { handleCallback, handleReturn, sweepAbandoned } from "./payments.js";
 import { salesReport, reportParams } from "./sales.js";
 import { reorderData } from "./reorder.js";
@@ -358,8 +359,9 @@ export default {
       return json({ error: "Something went wrong. Try again." }, 500, cors);
     }
   },
-  // Cron trigger (wrangler.toml): cancel online orders nobody paid for.
+  // Cron triggers (wrangler.toml): the daily briefing at 19:00 UTC, and every 15 minutes the cancelling of online orders nobody paid for.
   async scheduled(event, env, ctx) {
-    ctx.waitUntil(sweepAbandoned(env).catch(() => console.error("Payment sweep failed")));
+    if (event.cron === "0 19 * * *") ctx.waitUntil(sendBriefing(env).catch(() => console.error("Daily briefing failed")));
+    else ctx.waitUntil(sweepAbandoned(env).catch(() => console.error("Payment sweep failed")));
   }
 };
