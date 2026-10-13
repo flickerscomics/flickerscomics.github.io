@@ -16,6 +16,8 @@ ORDERS_ENABLED = "true"
 FLEECA_PAYMENTS = "true"
 # 0 = sandbox (nothing is charged), 1 = live
 FLEECA_MODE = "1"
+# The daily briefing always pings this role (the @Staff role id). Its channel is the secret DISCORD_BRIEFING_WEBHOOK_URL (optional).
+# DISCORD_BRIEFING_ROLE = "123456789012345678"
 # Optional: the id of a Discord role to ping on every new order.
 # DISCORD_PING_ROLE = "123456789012345678"
 

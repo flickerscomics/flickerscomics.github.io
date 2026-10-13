@@ -83,3 +83,14 @@ test("the briefing stays well inside the free-plan call limit, and the other cro
   await worker.scheduled({ cron: "*/15 * * * *" }, { ...env, FLEECA_API_KEY: "" }, { waitUntil: p => { swept = true; return p; } });
   assert.ok(swept && posts.length === 1, "the 15-minute cron doesn't post a briefing");
 });
+
+test("the briefing pings its own role, in its own channel, and only that role", async () => {
+  const { env, posts } = setup();
+  env.DISCORD_BRIEFING_ROLE = "222222222222222222"; env.DISCORD_PING_ROLE = "111111111111111111"; env.DISCORD_BRIEFING_WEBHOOK_URL = "https://discord.test/api/webhooks/2/staff-chat";
+  const staff = [], real = globalThis.fetch;
+  globalThis.fetch = async (url, opts) => { if (String(url).startsWith("https://discord.test/api/webhooks/2/")) { staff.push(JSON.parse(opts.body)); return new Response("{}"); } return real(url, opts); };
+  await run(env);
+  assert.equal(posts.length, 0, "not in the orders channel");
+  assert.match(staff[0].content, /^<@&222222222222222222> /);
+  assert.deepEqual(staff[0].allowed_mentions, { parse: [], roles: ["222222222222222222"] });
+});

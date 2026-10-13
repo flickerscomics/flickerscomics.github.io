@@ -113,6 +113,6 @@ Without the secret the workflow does nothing. To stop the posts, delete the secr
 
 Every day at **19:00 UTC (8 PM UTC+1)** the Worker posts one "Daily briefing" message to the same channel: open orders (new and ready, and the oldest),
 collections due or overdue, orders to post, orders not paid yet, payments to check, comics that are back in stock with people waiting, comics nearly gone,
-how many are sold out, special requests, and online orders waiting on Fleeca. It posts even on a quiet day. If `DISCORD_PING_ROLE` is set it pings
-the role only when something is due, needs checking, or has people waiting. The time is the cron in `worker/wrangler.toml` (`0 19 * * *`, always UTC,
+how many are sold out, special requests, and online orders waiting on Fleeca. It posts even on a quiet day. It always pings the role in `DISCORD_BRIEFING_ROLE` (the @Staff role id, set in `worker/wrangler.toml`), and posts to the channel of the secret
+`DISCORD_BRIEFING_WEBHOOK_URL` (for example #staff-chat; without it the orders channel is used). The time is the cron in `worker/wrangler.toml` (`0 19 * * *`, always UTC,
 so after the clocks go back it is 7 PM in London); change it there and deploy. Code: `worker/src/briefing.js`. It reads the newest 30 orders, so on a very busy day the footer says so.

@@ -3,7 +3,7 @@
 
    It only reads, and it's built to stay inside a free-plan Worker's limit of about 50 calls per run: the newest 30 orders
    (one listing plus one read each), the stock from GitHub (a few calls), and the wanted list's key metadata (no reads). */
-import { escMd, cut, pingRole, webhook } from "./discord.js";
+import { escMd, cut, webhook } from "./discord.js";
 import { readStock } from "./github.js";
 import { shopConfig, siteBase } from "./shop.js";
 import { wantKeys } from "./wants.js";
@@ -71,13 +71,18 @@ export function briefingEmbed(b, site = "") {
   };
 }
 
+/* The briefing has its own role (DISCORD_BRIEFING_ROLE, e.g. @Staff) that it always pings, and optionally its own channel
+   (the secret DISCORD_BRIEFING_WEBHOOK_URL, e.g. for #staff-chat). Without them it goes to the orders channel with no ping. */
+const briefingRole = env => (/^\d{5,25}$/.test(String(env.DISCORD_BRIEFING_ROLE || "")) ? String(env.DISCORD_BRIEFING_ROLE) : null);
+
 export async function sendBriefing(env) {
   const b = await gatherBriefing(env);
-  const role = pingRole(env), urgent = b.due.length || b.check.length || b.backInStock.length;
-  const sent = await webhook(env, { payload: {
+  const role = briefingRole(env);
+  const target = { ...env, DISCORD_WEBHOOK_URL: env.DISCORD_BRIEFING_WEBHOOK_URL || env.DISCORD_WEBHOOK_URL };
+  const sent = await webhook(target, { payload: {
     username: "Flickers Orders",
-    content: role && urgent ? `<@&${role}> daily briefing` : undefined,
-    allowed_mentions: { parse: [], roles: role && urgent ? [role] : [] },
+    content: role ? `<@&${role}> daily briefing` : undefined,
+    allowed_mentions: { parse: [], roles: role ? [role] : [] },
     embeds: [briefingEmbed(b, siteBase(env))]
   } });
   if (!sent.ok) console.error("Couldn't post the daily briefing:", sent.reason);
