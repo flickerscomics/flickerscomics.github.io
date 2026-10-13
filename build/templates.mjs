@@ -306,6 +306,10 @@ export function homePage(ctx) {
   const fan = hero.map((p, i) => `<a class="fan fan-${i + 1}" href="${comicUrl(root, p)}" data-open="${esc(p.id)}" aria-label="${esc(fullTitle(p))}. View details">${coverHTML(p, { imgBase: root, priority: i === 1, lazy: false, sizes: "(min-width: 860px) 200px, 40vw" })}</a>`).join("");
   const burst = `<svg class="burst" viewBox="-100 -100 200 200" aria-hidden="true"><polygon points="${burstPoints(0, 0, 66, 100, 22)}" fill="currentColor"/></svg>`;
   const total = products.length;
+  // "Single issues, trade paperbacks and manga": whatever the shop actually has on its shelves
+  const kinds = (ctx.cats || []).filter(c => c.key !== "all" && products.some(p => p.cat === c.key)).map(c => String(c.label || c.key).toLowerCase());
+  const stocked = kinds.length ? kinds.length === 1 ? kinds[0] : kinds.slice(0, -1).join(", ") + " and " + kinds[kinds.length - 1] : "comics";
+  const lede = `${stocked[0].toUpperCase() + stocked.slice(1)} in stock now. Order online, then collect at the counter or have it posted to you.`;
   const dividers = groups.length > 1
     ? `<button type="button" class="divider" data-group="all" aria-pressed="true">Everything<span class="n">${total}</span></button>` + groups.map(g => `<button type="button" class="divider" data-group="${esc(g.key)}" aria-pressed="false">${esc(g.label)}<span class="n">${g.count}</span></button>`).join("")
     : "";
@@ -319,7 +323,7 @@ ${header(root, { series: ctx.hasSeries })}
       <div class="hero-copy">
         <p class="eyebrow">Independent comic shop</p>
         <h1 id="heroTitle"><span class="mark">Comics</span> on the shelves now</h1>
-        <p class="lede">Single issues in stock now. Order online, then collect at the counter or have it posted to you.</p>
+        <p class="lede">${esc(lede)}</p>
         <div class="hero-actions">
           <a class="btn btn-yellow" href="#shop">Browse the shelves</a>
           <a class="btn btn-plain" href="#how">How ordering works</a>

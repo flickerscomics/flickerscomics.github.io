@@ -9,7 +9,7 @@
 import { bad } from "./http.js";
 import { adjustStock } from "./github.js";
 import { shopConfig, siteBase } from "./shop.js";
-import { webhook, escMd, pingRole } from "./discord.js";
+import { webhook, pingRole } from "./discord.js";
 import { announceLowStock } from "./alerts.js";
 import { recordSale } from "./sales.js";
 import { orderStatus, isAwaiting, findOrderKey, postToDiscord, editDiscord, ttlSeconds } from "./orders.js";

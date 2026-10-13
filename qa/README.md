@@ -17,3 +17,7 @@ along with screenshots). Set `QA_BROWSER` if no browser is found. Nothing here t
 
 Each `*.mjs` file also runs on its own once the site is built and served (`npm run build`, `npm run serve`, and `npm run dev:api`
 for the staff checks), which is handy while changing one thing.
+
+## Looking at the site
+
+`node shots.mjs <folder>` (with the site served on :8080, e.g. `npm run serve`) saves desktop and phone screenshots of the home page for a quick visual check.

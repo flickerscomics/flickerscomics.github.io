@@ -550,3 +550,9 @@ legend{margin-bottom:12px;padding:0;font-family:var(--font-display);font-size:24
 @media (prefers-reduced-motion:no-preference){.to-top{transition:transform .15s ease}}
 @media print{.ticker,.to-top{display:none}}
 @media (forced-colors:active){.ticker{border-color:CanvasText}.to-top{border-color:ButtonText}}
+
+/* ---------- a little extra flair ---------- */
+.section-title::after{content:"";display:block;width:88px;height:12px;margin-top:10px;background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 88 12'%3E%3Cpath d='M2 8 9 3l7 5 7-5 7 5 7-5 7 5 7-5 7 5 7-5 7 5 7-5' fill='none' stroke='%23D3156C' stroke-width='3.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat left center/contain}
+.site-footer{border-top:8px solid transparent;border-image:repeating-linear-gradient(135deg,var(--yellow) 0 14px,var(--ink-fixed) 14px 28px) 8}
+@media (forced-colors:active){.section-title::after{display:none}.site-footer{border-image:none;border-top-color:CanvasText}}
+@media print{.section-title::after{display:none}.site-footer{border:0}}
