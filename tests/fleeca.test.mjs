@@ -68,6 +68,7 @@ async function ordered(env, fl, over) {
   const r = await j(call(env, "POST", "/orders", buy(over)));
   return { r, pay: [...fl.payments.values()].pop() };
 }
+const sweep = async env => { let p; await worker.scheduled({}, env, { waitUntil: x => { p = x; } }); await p; }; // run the 15-minute job and wait for it to finish
 const age = (env, id, minutes) => env.USERS.meta.set(`await:${id}`, { p: Date.now() - minutes * 60000 });
 
 test("with payments on, an order gets a Fleeca link, holds its comics and says nothing in Discord yet", async () => {
@@ -207,7 +208,7 @@ test("the return page sends the customer back to the shop with what we know, and
   for (const bad of [undefined, "nonsense", crypto.randomUUID()]) assert.equal((await back(env, bad)).headers.get("Location"), `${ORIGIN}/?payment=unknown`);
 });
 
-test("if the webhook is late, the return page asks Fleeca itself, and not more than once every 20 seconds", async () => {
+test("if the webhook is late, the return page only tells the customer what Fleeca says, and the 15-minute job posts the order, once", async () => {
   const { st, fl } = world(), env = baseEnv();
   const { r, pay } = await ordered(env, fl);
   const calls = fl.calls.length;
@@ -218,11 +219,16 @@ test("if the webhook is late, the return page asks Fleeca itself, and not more t
   fl.payments.get(pay.payment_id).status = "payment_successful";
   const o = storedOrder(env, r.orderId); o.payment.checkedAt = 0; env.USERS.m.set([...env.USERS.m.keys()].find(k => k.startsWith("order:")), JSON.stringify(o));
   const res = await back(env, pay.payment_id);
-  assert.equal(res.headers.get("Location"), `${ORIGIN}/?order=${r.orderId}&status=paid`);
+  assert.equal(res.headers.get("Location"), `${ORIGIN}/?order=${r.orderId}&status=paid`, "the customer is told it went through");
+  assert.equal(orderPosts(st).length, 0, "but the return page itself never posts or settles");
+  assert.equal(storedOrder(env, r.orderId).paid, false);
+  age(env, r.orderId, 4); // the webhook never came: after a few minutes the 15-minute job asks Fleeca
+  await sweep(env);
   assert.equal(orderPosts(st).length, 1);
-  const done = storedOrder(env, r.orderId);
-  assert.equal(done.paid, true);
-  fl.payments.get(pay.payment_id).payer_name = "Jane Citizen";
+  assert.equal(storedOrder(env, r.orderId).paid, true);
+  age(env, r.orderId, 40);
+  await sweep(env);
+  assert.equal(orderPosts(st).length, 1, "and not again");
 });
 
 test("a failed check with Fleeca on the return page still sends the customer home safely", async () => {
@@ -240,8 +246,7 @@ test("the sweep cancels orders still unpaid after 30 minutes, settles paid ones,
   fl.payments.get(paid.pay.payment_id).status = "payment_successful";
   age(env, abandoned.r.orderId, 45); age(env, paid.r.orderId, 45); age(env, fresh.r.orderId, 5);
   assert.equal(stockOf(st, "a"), 2);
-  await worker.scheduled({}, env, { waitUntil: p => p });
-  await new Promise(r => setTimeout(r, 20));
+  await sweep(env);
   assert.equal(storedOrder(env, abandoned.r.orderId).status, "cancelled");
   assert.equal(storedOrder(env, abandoned.r.orderId).payment.state, "expired");
   assert.equal(storedOrder(env, paid.r.orderId).paid, true);
@@ -255,14 +260,12 @@ test("the sweep handles only a few orders at a time and stops when Fleeca says s
   const ids = [];
   for (let i = 0; i < 5; i++) { const { r } = await ordered(env, fl, { items: [{ id: "a", qty: 1 }] }); ids.push(r.orderId); age(env, r.orderId, 60); }
   const before = fl.calls.length;
-  await worker.scheduled({}, env, { waitUntil: p => p });
-  await new Promise(r => setTimeout(r, 30));
+  await sweep(env);
   assert.equal(fl.calls.length - before, 3, "three Fleeca checks per run");
   assert.equal(ids.filter(id => storedOrder(env, id).status === "cancelled").length, 3);
   fl.reply = 429;
   const calls = fl.calls.length;
-  await worker.scheduled({}, env, { waitUntil: p => p });
-  await new Promise(r => setTimeout(r, 30));
+  await sweep(env);
   assert.equal(fl.calls.length - calls, 1, "one 429 and it stops");
   assert.equal(ids.filter(id => storedOrder(env, id).status === "cancelled").length, 3, "nothing cancelled on a guess");
 });
@@ -271,8 +274,7 @@ test("a payment that turns up after the order was cancelled reopens it if the co
   const { st, fl } = world(), env = baseEnv();
   const { r, pay } = await ordered(env, fl);
   age(env, r.orderId, 45);
-  await worker.scheduled({}, env, { waitUntil: p => p });
-  await new Promise(r => setTimeout(r, 20));
+  await sweep(env);
   assert.equal(storedOrder(env, r.orderId).status, "cancelled");
   assert.equal(stockOf(st, "a"), 5);
   await webhook(env, news(pay));
@@ -287,8 +289,7 @@ test("a late payment for comics that sold meanwhile is flagged for a refund, not
   const { st, fl } = world(), env = baseEnv();
   const { r, pay } = await ordered(env, fl, { items: [{ id: "b", qty: 1 }] }); // the only copy
   age(env, r.orderId, 45);
-  await worker.scheduled({}, env, { waitUntil: p => p });
-  await new Promise(r => setTimeout(r, 20));
+  await sweep(env);
   st.products.find(p => p.id === "b").stock = 0; // somebody else got it
   await webhook(env, news(pay));
   const o = storedOrder(env, r.orderId);
@@ -343,4 +344,19 @@ test("a failed attempt because Fleeca is unavailable doesn't count towards the c
   for (let i = 0; i < 8; i++) assert.equal((await call(env, "POST", "/orders", buy())).status, 502, "never locked out for Fleeca's trouble");
   fl.down = false;
   assert.equal((await call(env, "POST", "/orders", buy())).status, 200);
+});
+
+test("when the webhook and the return page both report the payment at the same moment, the order is posted to Discord once", async () => {
+  const { st, fl } = world(), env = baseEnv();
+  const { r, pay } = await ordered(env, fl);
+  fl.payments.get(pay.payment_id).status = "payment_successful"; // Fleeca already has it as paid, so the return page's own check agrees
+  // a slow Discord makes the overlap as wide as it is in real life
+  const real = globalThis.fetch;
+  globalThis.fetch = async (url, opts) => { if (String(url).startsWith(HOOK)) await new Promise(r => setTimeout(r, 120)); return real(url, opts); };
+  const o = storedOrder(env, r.orderId); o.payment.checkedAt = 0;
+  env.USERS.m.set([...env.USERS.m.keys()].find(k => k.startsWith("order:")), JSON.stringify(o));
+  await Promise.all([webhook(env, news(pay)), webhook(env, news(pay)), back(env, pay.payment_id)]);
+  assert.equal(orderPosts(st).length, 1, "one post however many deliveries overlap");
+  assert.equal(storedOrder(env, r.orderId).paid, true);
+  assert.ok(storedOrder(env, r.orderId).discordId, "and the post is remembered so staff changes edit it");
 });

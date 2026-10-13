@@ -16,11 +16,28 @@ import { orderStatus, isAwaiting, findOrderKey, postToDiscord, editDiscord, ttlS
 import { getPayment, verifySignature, modeNumber, fleecaMode } from "./fleeca.js";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const ABANDON_MS = 30 * 60 * 1000, LONG_PENDING_MS = 2 * 3600 * 1000, SWEEP_BATCH = 3, RECHECK_MS = 20 * 1000, RETURN_WAIT_MS = 1500;
+const ABANDON_MS = 30 * 60 * 1000, LONG_PENDING_MS = 2 * 3600 * 1000, SWEEP_BATCH = 3, RECHECK_MS = 20 * 1000, RETURN_WAIT_MS = 1500, CLAIM_WAIT_MS = 150, CLAIM_STALE_MS = 60 * 1000, CHECK_AFTER_MS = 3 * 60 * 1000;
 
 const save = (env, key, o) => env.USERS.put(key, JSON.stringify(o), { expirationTtl: ttlSeconds(o) });
 const note = (o, change) => { o.history = [...(o.history || []), { at: new Date().toISOString(), by: "Fleeca", change }].slice(-30); };
 const lines = o => o.items.map(i => [i.id, i.qty]);
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+/* Workers KV has no compare-and-set, so whoever gets here first writes a claim, waits a moment, and reads it back: only the one whose claim is
+   still there carries on to post the order. Everyone else sees an order that is already being finished. */
+async function claim(env, key, o) {
+  const raw = await env.USERS.get(key);
+  const cur = raw ? JSON.parse(raw) : o;
+  const p = cur.payment || {};
+  if (p.state === "paid" || (p.claim && Date.now() - (p.claimAt || 0) < CLAIM_STALE_MS)) return false; // finished, or someone is on it
+  const mine = crypto.randomUUID();
+  await env.USERS.put(key, JSON.stringify({ ...cur, payment: { ...cur.payment, claim: mine, claimAt: Date.now() } }), { expirationTtl: ttlSeconds(cur) });
+  await sleep(CLAIM_WAIT_MS);
+  const again = JSON.parse(await env.USERS.get(key));
+  if ((again.payment || {}).claim !== mine) return false;
+  o.payment.claim = mine;
+  return true;
+}
 
 async function staffAlert(env, text) {
   const role = pingRole(env);
@@ -58,8 +75,6 @@ export async function settle(env, key, o, p) {
 
   if (status === "payment_successful") {
     if (pay.state === "paid") return "paid"; // the same webhook again
-    const fresh = await env.USERS.get(key); // another request (the webhook and the return page arrive together) may have just finished it
-    if (fresh && (JSON.parse(fresh).payment || {}).state === "paid") return "paid";
     const mode = modeNumber(p.mode);
     const wrong = Number(p.amount) !== o.total ? `Fleeca says $${Number(p.amount)} was paid but the order is $${o.total}`
       : mode === null || mode !== modeNumber(pay.mode) || mode !== fleecaMode(env) ? "the payment's mode (sandbox or live) doesn't match this order" : "";
@@ -67,6 +82,7 @@ export async function settle(env, key, o, p) {
       if (!pay.flag) { pay.flag = wrong; await save(env, key, o); await staffAlert(env, `Order ${o.id}: ${wrong}. It was NOT marked paid. Check the payment in Fleeca's Merchant Center.`); }
       return "flagged";
     }
+    if (!await claim(env, key, o)) return "paid"; // the webhook, a repeat of it and the return page all arrive together: only one of them carries on
     let late = "";
     if (orderStatus(o) === "cancelled") { // paid after it was cancelled (a slow customer, or the link outlived the 30 minutes)
       if (o.stock === "released") {
@@ -76,6 +92,7 @@ export async function settle(env, key, o, p) {
       else late = "Paid after it was cancelled. Its comics were never put back, so check the stock, or refund the customer on Fleeca.";
     }
     if (late) pay.flag = late;
+    delete pay.claim; delete pay.claimAt;
     Object.assign(pay, { state: "paid", status, payerName: String(p.payer_name || "").slice(0, 100), payerRouting: String(p.payer_routing || "").slice(0, 20), paidAt: p.paid_at || new Date().toISOString() });
     const sandbox = mode === 0; // a sandbox payment moves no money, so it must never make a real order "paid"
     if (sandbox) { pay.sandbox = true; pay.flag = pay.flag || "Sandbox payment: no money moved. Not marked paid."; note(o, "sandbox payment (no money moved)"); }
@@ -120,7 +137,7 @@ export async function handleReturn(env, url) {
   const go = query => new Response(null, { status: 303, headers: { Location: `${site}/?${query}`, "Cache-Control": "no-store" } });
   const hit = await loadByPayment(env, url.searchParams.get("payment_id"));
   if (!hit) return go("payment=unknown");
-  let { key, o } = hit;
+  let { key, o } = hit, seen = "";
   if (isAwaiting(o)) { // Fleeca sends the webhook and the customer's browser at about the same moment: give the webhook a moment to land first
     await new Promise(r => setTimeout(r, RETURN_WAIT_MS));
     const again = await env.USERS.get(key);
@@ -128,11 +145,13 @@ export async function handleReturn(env, url) {
   }
   if (isAwaiting(o) && env.FLEECA_API_KEY && Date.now() - (o.payment.checkedAt || 0) > RECHECK_MS) { // at most one Fleeca call per order every 20 seconds
     o.payment.checkedAt = Date.now();
-    try { await save(env, key, o); const p = await getPayment(env, o.payment.id); if (p) await settle(env, key, o, p); }
+    // Only to tell the customer what to expect. The webhook (or the 15-minute check if the webhook never comes) is what settles the order and
+    // posts it, so that only one thing ever does: this page can run in a different place from the webhook and can't see what it has just written.
+    try { await save(env, key, o); const p = await getPayment(env, o.payment.id); if (p) seen = String(p.status || ""); }
     catch (e) { console.error("Couldn't check a payment with Fleeca"); }
   }
   const state = o.payment ? o.payment.state : "";
-  const status = state === "paid" ? "paid" : ["failed", "cancelled", "expired"].includes(state) ? "failed" : "pending";
+  const status = state === "paid" || seen === "payment_successful" ? "paid" : ["failed", "cancelled", "expired"].includes(state) || seen === "payment_failed" ? "failed" : "pending";
   return go(`order=${encodeURIComponent(o.id)}&status=${status}`);
 }
 
@@ -145,7 +164,7 @@ export async function sweepAbandoned(env) {
   for (const k of page.keys) {
     if (done >= SWEEP_BATCH) break;
     const age = Date.now() - ((k.metadata && k.metadata.p) || 0);
-    if (age < ABANDON_MS) continue;
+    if (age < CHECK_AFTER_MS) continue; // the webhook normally lands within seconds; this is the backstop for one that never did
     const id = k.name.slice(6), key = await findOrderKey(env, id), raw = key && await env.USERS.get(key), o = raw && JSON.parse(raw);
     if (!o || !isAwaiting(o)) { await env.USERS.delete(k.name); continue; }
     done++;
@@ -155,7 +174,7 @@ export async function sweepAbandoned(env) {
       catch (e) { if (e.status === 429) break; if (e.status !== 404) continue; } // 404: Fleeca never heard of it. Anything else: try again next time
     }
     const result = p ? await settle(env, key, o, p) : "awaiting";
-    if (result === "awaiting" && !(p && p.status === "pending" && age < LONG_PENDING_MS)) await cancelUnpaid(env, key, o, "expired");
+    if (result === "awaiting" && age >= ABANDON_MS && !(p && p.status === "pending" && age < LONG_PENDING_MS)) await cancelUnpaid(env, key, o, "expired");
   }
   return { checked: done };
 }
