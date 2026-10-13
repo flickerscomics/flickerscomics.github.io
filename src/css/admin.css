@@ -194,37 +194,6 @@ kbd{white-space:nowrap;padding:1px 6px;border:1px solid var(--rule);border-botto
 .reorder-table input[type="checkbox"]{width:18px;height:18px;accent-color:var(--yellow)}
 .reorder-qty{width:76px;padding:6px 8px}
 
-/* slips: hidden on screen, the only thing printed when staff press Print slip(s).
-   Laid out like a till receipt: an 80 mm roll (72 mm of it printable), monospaced type, one receipt per page so each is cut off separately. */
-.slips{display:none}
-@page receipt{size:80mm 297mm;margin:0}
-@page receipt{size:80mm auto;margin:0}
-@media print{
-  body.printing-slips>*:not(.slips){display:none!important}
-  body.printing-slips .slips{display:block}
-  body.printing-slips{background:#fff}
-  .slip{page:receipt;box-sizing:border-box;width:72mm;margin:0 auto;padding:4mm 0 8mm;break-after:page;page-break-after:always;color:#000;background:#fff;font:11px/1.35 "Courier New","Lucida Console",Consolas,monospace;letter-spacing:0;-webkit-font-smoothing:none}
-  .slip:last-child{break-after:auto;page-break-after:auto}
-  .slip *{margin:0;padding:0}
-  .rc-head{text-align:center}
-  .rc-head h2{font:700 19px/1.1 "Courier New","Lucida Console",monospace;letter-spacing:.02em}
-  .rc-head p{margin-top:2px}
-  .rc-rule{height:0;margin:6px 0;border:0;border-top:1px dashed #000}
-  .rc-solid{border-top-style:solid}
-  .rc-row{display:flex;justify-content:space-between;gap:8px}
-  .rc-row>span:last-child:not(:first-child){text-align:right}
-  .rc-dim{font-size:10px}
-  .rc-block{margin:1px 0;overflow-wrap:anywhere}
-  .rc-items{list-style:none}
-  .rc-items li{display:flex;flex-wrap:wrap;justify-content:space-between;gap:0 8px;padding:2px 0}
-  .rc-l{flex:1 1 0;min-width:0;overflow-wrap:anywhere}
-  .rc-r{flex:none;text-align:right}
-  .rc-sub{flex-basis:100%;padding-left:2ch;font-size:10px}
-  .rc-total{margin-top:3px;padding-top:3px;border-top:1px solid #000;font-size:15px}
-  .rc-pay{margin:6px 0 0;padding:3px 0;border:1px solid #000;text-align:center;font-weight:700;letter-spacing:.12em}
-  .rc-foot{text-align:center}
-  .rc-foot p:nth-child(2){margin-top:4px;font-weight:700;letter-spacing:.2em}
-}
 .rv-in .ct-results{margin-bottom:16px}
 @media (max-width:640px){
   .reorder-table thead{display:none}

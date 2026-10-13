@@ -2,9 +2,16 @@
 import { esc, escLines, money } from "../shared.mjs";
 import { $, S, api, say, orderWhen, pager, shopConfig, shopToday, copyText, csvCell, download } from "./core.js";
 import { orderMessage } from "./messages.js";
-import { printSlips } from "./slips.js";
+import { saveReceipts } from "./receipt.js";
 
 /* ---------- orders tab ---------- */
+/* Draws the receipt(s) as a picture and saves it, saying where to find it. */
+async function saveReceiptImage(orders, cfg) {
+  try {
+    const name = await saveReceipts(orders, cfg);
+    if (!name) say("Nothing to save.", "error"); else say(`Saved ${name}. It's in your Downloads folder: open it to print, or send it on.`, "ok");
+  } catch (e) { say("Couldn't make the receipt picture. Try again.", "error"); }
+}
 const orderStatus = o => o.status || "new";
 const awaiting = o => !!o.payment && o.payment.state === "awaiting"; // an online order the customer hasn't paid for on Fleeca yet
 const payText = o => { const p = o.payment; if (p && p.sandbox) return "Sandbox test payment: no money moved, not paid"; return o.paid ? (p && p.state === "paid" ? `Paid via Fleeca${p.payerName ? " by " + p.payerName : ""}` : "Paid") : awaiting(o) ? "Waiting for the customer to pay on Fleeca" : "Not paid yet"; };
@@ -52,7 +59,7 @@ function orderHTML(o, expanded) {
   else if (s === "done" || s === "cancelled") actions.push(btn('data-status="new"', "Reopen"));
   if (!awaiting(o)) actions.push(btn(`data-paid="${o.paid ? "no" : "yes"}"`, o.paid ? "Mark unpaid" : "Mark paid"));
   const tool = (act, text) => `<button type="button" class="btn btn-small btn-quiet" data-oact="${act}" data-oid="${esc(o.id)}">${text}</button>`;
-  actions.push(tool("copy", "Copy message"), tool("print", "Print slip"));
+  actions.push(tool("copy", "Copy message"), tool("print", "Save receipt"));
   if (s === "new" || s === "ready") actions.push(btn('data-status="cancelled"', "Cancel order", "btn-danger"));
   const history = [o.source === "staff" ? `Keyed in by ${o.enteredBy} · ${orderWhen(o.placedAt)}` : `Placed by the customer · ${orderWhen(o.placedAt)}`, ...(o.history || []).filter(h => h.change !== "entered").map(h => `${HISTORY_NAME(h.change, o)} by ${h.by} · ${orderWhen(h.at)}`)];
   const pillClass = awaiting(o) ? "pill-void" : { new: "pill-edit", ready: "pill-added", done: "", cancelled: "pill-void" }[s];
@@ -82,7 +89,7 @@ export async function renderOrders() {
     <div class="orders-tools">
       <label class="search"><span class="sr-only">Search orders</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input type="search" id="oSearch" placeholder="Search by order number, name or phone" autocomplete="off"></label>
       <button type="button" class="btn btn-yellow btn-small" id="counterBtn">+ Take an order</button>
-      <button type="button" class="btn btn-small" id="printBtn">Print slips</button>
+      <button type="button" class="btn btn-small" id="printBtn">Save receipts</button>
     </div>
     <p class="due-strip" id="dueStrip" role="status" hidden></p>
     <div class="orders-chips" id="orderChips" role="group" aria-label="Narrow the list"></div>
@@ -119,7 +126,7 @@ export async function renderOrders() {
     $("ordersFilter").innerHTML = (filter === "archive" ? '<p class="hint orders-note">Finished orders are kept here for two weeks, then deleted for good. Reopen one to move it back to Open.</p>' : "") + ORDER_FILTERS.map(([k, name, fn]) => `<button type="button" class="btn btn-small" data-filter="${k}" aria-pressed="${filter === k}">${name} (${orders.filter(fn).length})</button>`).join("");
     const list = orders.filter(ORDER_FILTERS.find(f => f[0] === filter)[2]).filter(o => CHIPS.every(([k, , fn]) => !chips[k] || fn(o, today))).filter(o => !query || matchesSearch(o, query));
     shown = list;
-    $("printBtn").textContent = list.length ? `Print slips (${list.length})` : "Print slips";
+    $("printBtn").textContent = list.length ? `Save receipts (${list.length})` : "Save receipts";
     $("printBtn").disabled = !list.length;
     if (filter === "archive") list.sort((a, b) => Date.parse(b.completedAt || 0) - Date.parse(a.completedAt || 0));
     $("ordersList").innerHTML = list.length ? list.map(o => orderHTML(o, open.has(o.id))).join("")
@@ -134,7 +141,7 @@ export async function renderOrders() {
     $("orderChips").querySelector(`[data-chip="${b.dataset.chip}"]`).focus();
   });
   $("dueStrip").addEventListener("click", ev => { if (ev.target.closest("[data-chipjump]")) { filter = "open"; chips.due = true; paint(); $("orderChips").querySelector('[data-chip="due"]').focus(); } });
-  $("printBtn").addEventListener("click", () => { if (!printSlips(shown.slice(0, 60), cfg)) say("Nothing to print.", "error"); });
+  $("printBtn").addEventListener("click", () => saveReceiptImage(shown.slice(0, 60), cfg));
   $("counterBtn").addEventListener("click", async () => {
     const { openCounter } = await import("./counter.js");
     openCounter({
@@ -142,7 +149,7 @@ export async function renderOrders() {
       onPlaced: r => {
         if (!orders.some(o => o.id === r.order.id)) orders.unshift(r.order);
         filter = isOpen(r.order) ? "open" : "archive"; paint();
-        say(`Order ${r.orderId} created: ${money(r.total)}${r.order.status === "done" ? ", handed over" : ""}${r.paid ? ", paid" : ""}. The shelf has been updated.`, "ok", isOpen(r.order) ? [{ label: "Print slip", fn: () => printSlips([r.order], cfg) }] : []);
+        say(`Order ${r.orderId} created: ${money(r.total)}${r.order.status === "done" ? ", handed over" : ""}${r.paid ? ", paid" : ""}. The shelf has been updated.`, "ok", isOpen(r.order) ? [{ label: "Save receipt", fn: () => saveReceiptImage([r.order], cfg) }] : []);
       }
     });
   });
@@ -158,7 +165,7 @@ export async function renderOrders() {
     const b = ev.target.closest("[data-oid]"); if (!b) return;
     const id = b.dataset.oid, o = orders.find(x => x.id === id); if (!o) return;
     if (b.dataset.oact === "copy") { copyText(orderMessage(o, cfg), `Message for ${o.name} copied. Paste it into your text.`); return; }
-    if (b.dataset.oact === "print") { printSlips([o], cfg); return; }
+    if (b.dataset.oact === "print") { saveReceiptImage([o], cfg); return; }
     const body = b.dataset.status ? { status: b.dataset.status } : { paid: b.dataset.paid === "yes" };
     const go = async () => {
       b.disabled = true;

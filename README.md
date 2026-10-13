@@ -133,13 +133,13 @@ order (what was bought and when, never who by) that outlives the order itself, s
 - **Finding and working orders** (Orders tab): search by order number, name or phone number (any way it's written); narrow to *Not paid*, *Due today*
   or *To post*; a strip at the top counts today's collections and any earlier ones not picked up. **Copy message** gives a ready-to-send text for
   the order's stage ("Your order FC-… is ready to collect on Mon 5 Oct…"); the Wanted tab has the same for people waiting on a comic.
-  **Print slip** (one order) or **Print slips** (everything shown) prints each order like a till receipt: an 80 mm roll (72 mm printable), monospaced type, dashed rules,
-  with the shop name, order number, customer, how it goes out, the comics with prices lined up on the right, the deal, postage, total and whether it's paid. In the
-  print dialog choose your receipt printer (or Save as PDF); each order is its own page so the roll is cut between them. For a 58 mm printer, change `72mm` and the
-  `80mm` page size in `src/css/admin.css`.
+  **Save receipt** (one order) or **Save receipts** (everything shown) draws each order as a picture of a till receipt and saves it as a PNG in your Downloads
+  folder: 576 px wide (an 80 mm roll at 203 dpi), monospaced type, dashed rules, the shop name, order number, customer, how it goes out, the comics with prices
+  lined up on the right, the deal, postage, total, and whether it's paid. Several orders are stacked into one tall picture with a cut line between them. Open the
+  picture to print it, or send it on. Code: `src/admin/receipt.js`.
 - **Reorder** (Reorder tab): comics that are sold out, down to their last two, or wanted by more people than there are copies, with who's waiting,
   what sold over the last eight weeks, and a suggested number (enough for the people waiting plus about two weeks of sales, less what's on the shelf).
-  Change numbers, untick rows, then copy the list or download it as a spreadsheet. Things customers requested that you don't stock are listed below.
+  Change numbers, untick rows, then **Add to stock** to put what has arrived back on the shelf (it adds to the live stock, and anyone waiting for a comic that's back is flagged in Discord), or download the list as a spreadsheet for your supplier. Things customers requested that you don't stock are listed below.
 - **Receive shipment** (Stock tab): tap +1 or +5 on a search result, or paste a list. One comic per line with the number that arrived works however
   it's written (`Batman #14, 5`, `Flash #2 x3`, `5 x Saga #1`, `batman-14<TAB>5`) as do a spreadsheet's rows with a Title and Quantity column. Lines that
   match more than one comic ask which; lines that match nothing are flagged. Applying adds the copies to the stock list as ordinary unpublished

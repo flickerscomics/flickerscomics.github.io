@@ -23,6 +23,7 @@ import { sendBriefing } from "./briefing.js";
 import { handleCallback, handleReturn, sweepAbandoned } from "./payments.js";
 import { salesReport, reportParams } from "./sales.js";
 import { reorderData } from "./reorder.js";
+import { addStock } from "./restock.js";
 import { gh, readStock, branchName, serializeProducts, mergeStock } from "./github.js";
 
 const PBKDF2_ITERATIONS = 100000; // Cloudflare Workers allows at most 100,000
@@ -300,6 +301,7 @@ async function route(request, env) {
     return { version: s.version, products: s.products, featured: s.featured };
   }
   if (method === "POST" && path === "/publish") return publish(env, user, await readJson(request));
+  if (method === "POST" && path === "/stock/add") return addStock(env, await readJson(request), user);
 
   if (method === "GET" && path === "/orders") return { ...(await listOrders(env, url.searchParams.get("cursor"))), ordersOpen: String(env.ORDERS_ENABLED) === "true", discord: !!env.DISCORD_WEBHOOK_URL };
   if (method === "POST" && path === "/orders/test") return sendTestMessage(env, user);

@@ -30,7 +30,7 @@ await page.evaluate(axeSrc);
 const axe = async name => { const v = await page.evaluate(async () => (await axe.run(document, { resultTypes: ["violations"] })).violations.map(x => x.id + ": " + x.nodes.slice(0, 2).map(n => n.target.join(" ")).join(" ; "))); check(`accessibility: ${name}`, v.length === 0, v.join(" || ")); };
 await page.type("#u", "owner"); await page.type("#pw", "owner-password-1"); await page.click("#loginBtn");
 await page.waitForSelector("#panel .arow");
-await page.evaluate(() => { Object.defineProperty(navigator, "clipboard", { value: { writeText: async t => { window.__copied = t; } }, configurable: true }); window.print = () => { window.__printed = document.querySelector(".slips")?.innerHTML || ""; window.__printClass = document.body.classList.contains("printing-slips"); }; });
+await page.evaluate(() => { Object.defineProperty(navigator, "clipboard", { value: { writeText: async t => { window.__copied = t; } }, configurable: true }); window.__pics = []; const mk = URL.createObjectURL.bind(URL); URL.createObjectURL = b => { if (b && b.type === "image/png") window.__pics.push(b); return mk(b); }; });
 
 /* ---- Orders: due strip, chips, search, messages, slips ---- */
 await page.$eval('[data-tab="orders"]', t => t.click()); await page.waitForSelector("details.order"); await sleep(400);
@@ -55,16 +55,15 @@ await page.$eval("details.order summary", s => s.click());
 await page.$eval('[data-oact="copy"]', b => b.click()); await sleep(150);
 const copied = await page.evaluate(() => window.__copied);
 check("Copy message gives a ready-to-send text with the order number", copied.includes(today.orderId) && copied.startsWith("Hi Todd"), copied);
-await page.$eval('[data-oact="print"]', b => b.click()); await sleep(150);
-const slip = await page.evaluate(() => ({ html: window.__printed, on: window.__printClass }));
-check("Print slip builds one till-style receipt with the comics on it", slip.on && slip.html.includes(today.orderId) && slip.html.includes("Todd Today") && slip.html.includes(fullTitle(inStock[0])) && slip.html.includes("TOTAL") && slip.html.includes("rc-head"));
-await page.evaluate(() => window.dispatchEvent(new Event("afterprint"))); await sleep(100);
-check("the slip sheet is tidied away after printing", (await page.$(".slips")) === null && !(await page.evaluate(() => document.body.classList.contains("printing-slips"))));
+await page.$eval('[data-oact="print"]', b => b.click()); await sleep(600);
+const pic = await page.evaluate(async () => { const b = window.__pics.at(-1); if (!b) return null; const bmp = await createImageBitmap(b); return { type: b.type, size: b.size, w: bmp.width, h: bmp.height }; });
+check("Save receipt makes one picture: a PNG, 576 px wide at 2x, taller than wide like a till roll", pic && pic.type === "image/png" && pic.size > 8000 && pic.w === 1152 && pic.h > pic.w, JSON.stringify(pic));
+check("and says where it went", /Saved flickers-receipt-FC-/.test(await page.$eval("#aMsg", e => e.textContent)), await page.$eval("#aMsg", e => e.textContent));
 await page.evaluate(() => { const e = document.getElementById("oSearch"); e.value = ""; e.dispatchEvent(new Event("input", { bubbles: true })); }); await sleep(200);
-check("the Print slips button counts the orders shown", /Print slips \(4\)/.test(await page.$eval("#printBtn", b => b.textContent)), await page.$eval("#printBtn", b => b.textContent));
-await page.$eval("#printBtn", b => b.click()); await sleep(100);
-check("printing the list makes a slip for each", (await page.evaluate(() => (window.__printed.match(/class="slip"/g) || []).length)) === 4);
-await page.evaluate(() => window.dispatchEvent(new Event("afterprint")));
+check("the Save receipts button counts the orders shown", /Save receipts \(4\)/.test(await page.$eval("#printBtn", b => b.textContent)), await page.$eval("#printBtn", b => b.textContent));
+await page.$eval("#printBtn", b => b.click()); await sleep(800);
+const stack = await page.evaluate(async () => { const b = window.__pics.at(-1), bmp = await createImageBitmap(b); return { h: bmp.height, n: window.__pics.length }; });
+check("saving the list stacks every order into one taller picture", stack.n >= 2 && stack.h > pic.h * 3, JSON.stringify(stack) + " vs one " + pic.h);
 await axe("orders tab");
 
 /* ---- take an order ---- */
@@ -137,9 +136,7 @@ if (hasRows) {
   const first = await page.$eval(".reorder-table tbody tr", r => ({ title: r.querySelector("th").textContent, qty: r.querySelector("[data-qty]").value }));
   await page.$eval("[data-qty]", e => { e.value = "2"; e.dispatchEvent(new Event("change", { bubbles: true })); });
   check("typing a quantity ticks the row", await page.$eval("[data-pick]", c => c.checked));
-  await page.$eval("#rCopy", b => b.click()); await sleep(150);
-  const text = await page.evaluate(() => window.__copied);
-  check("Copy the list gives 'N × Title' lines", /^\d+ × /.test(text), text.split("\n")[0]);
+  check("the list has Add to stock (not Copy) and a spreadsheet download", !!(await page.$("#rAdd")) && !!(await page.$("#rCsv")) && !(await page.$("#rCopy")));
   await page.$eval("[data-qty]", e => { e.value = "0"; e.dispatchEvent(new Event("change", { bubbles: true })); });
   check("setting a quantity to 0 unticks the row", !(await page.$eval("[data-pick]", c => c.checked)));
   await axe("reorder tab");
