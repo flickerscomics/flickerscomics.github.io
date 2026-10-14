@@ -39,6 +39,7 @@ function world() {
       return p ? ok({ success: true, data: p }) : ok({}, 404);
     }
     if (u === `${ORIGIN}/data/shop.json`) return ok({ config: CONFIG, products: COMICS() });
+    if (u.startsWith(HOOK) && method === "PATCH") { st.edits = (st.edits || 0) + 1; return ok({}); } // an edit of a message already posted
     if (u.startsWith(HOOK)) { st.posts.push(JSON.parse(opts.body)); return ok({ id: String(1000 + st.posts.length) }); }
     const path = new URL(u).pathname.replace("/repos/o/r", "");
     if (path.startsWith("/git/ref/heads/") && method === "GET") return ok({ object: { sha: "h" + st.head } });
@@ -217,7 +218,7 @@ test("if the webhook is late, the return page only tells the customer what Fleec
   await back(env, pay.payment_id);
   assert.equal(fl.calls.length, calls + 1, "one check, however many times the page is opened");
   fl.payments.get(pay.payment_id).status = "payment_successful";
-  const o = storedOrder(env, r.orderId); o.payment.checkedAt = 0; env.USERS.m.set([...env.USERS.m.keys()].find(k => k.startsWith("order:")), JSON.stringify(o));
+  env.USERS.m.delete(`chk:${r.orderId}`); // so the page may ask Fleeca again
   const res = await back(env, pay.payment_id);
   assert.equal(res.headers.get("Location"), `${ORIGIN}/?order=${r.orderId}&status=paid`, "the customer is told it went through");
   assert.equal(orderPosts(st).length, 0, "but the return page itself never posts or settles");
@@ -353,8 +354,7 @@ test("when the webhook and the return page both report the payment at the same m
   // a slow Discord makes the overlap as wide as it is in real life
   const real = globalThis.fetch;
   globalThis.fetch = async (url, opts) => { if (String(url).startsWith(HOOK)) await new Promise(r => setTimeout(r, 120)); return real(url, opts); };
-  const o = storedOrder(env, r.orderId); o.payment.checkedAt = 0;
-  env.USERS.m.set([...env.USERS.m.keys()].find(k => k.startsWith("order:")), JSON.stringify(o));
+  env.USERS.m.delete(`chk:${r.orderId}`);
   await Promise.all([webhook(env, news(pay)), webhook(env, news(pay)), back(env, pay.payment_id)]);
   assert.equal(orderPosts(st).length, 1, "one post however many deliveries overlap");
   assert.equal(storedOrder(env, r.orderId).paid, true);
@@ -388,4 +388,25 @@ test("staff can check a payment with Fleeca, or mark it paid by hand, and either
   assert.equal(orderPosts(st).length, 2, "doing it twice posts nothing more");
   assert.equal((await j(call(env, "POST", `/orders/${b.r.orderId}/payment`, { action: "nope" }, token))).status, 400);
   assert.equal((await j(call(env, "POST", `/orders/${b.r.orderId}/payment`, { action: "manual" }))).status, 401, "signed-in staff only");
+});
+
+test("the return page never writes the order, and a record that was reverted can't make a second Discord post", async () => {
+  const { st, fl } = world(), env = baseEnv();
+  await call(env, "POST", "/setup", { key: "k", username: "owner", password: "correct horse battery" });
+  const token = (await j(call(env, "POST", "/login", { username: "owner", password: "correct horse battery" }))).token;
+  const { r, pay } = await ordered(env, fl);
+  const key = [...env.USERS.m.keys()].find(k => k.startsWith("order:"));
+  const before = env.USERS.m.get(key);
+  await back(env, pay.payment_id);
+  assert.equal(env.USERS.m.get(key), before, "opening the return page changes nothing in the order");
+
+  fl.payments.get(pay.payment_id).status = "payment_successful";
+  await webhook(env, news(pay));
+  assert.equal(orderPosts(st).length, 1);
+  const o = storedOrder(env, r.orderId); // a stale copy lands over the paid order: awaiting again, Discord message forgotten
+  o.paid = false; o.payment.state = "awaiting"; delete o.discordId; delete o.payment.paidAt;
+  env.USERS.m.set(key, JSON.stringify(o));
+  const c = await j(call(env, "POST", `/orders/${r.orderId}/payment`, { action: "check" }, token));
+  assert.equal(c.result, "paid");
+  assert.equal(orderPosts(st).length, 1, "the Discord message is edited, not posted again");
 });

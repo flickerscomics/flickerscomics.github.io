@@ -16,7 +16,7 @@ import { orderStatus, isAwaiting, findOrderKey, postToDiscord, editDiscord, ttlS
 import { getPayment, verifySignature, modeNumber, fleecaMode } from "./fleeca.js";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const ABANDON_MS = 30 * 60 * 1000, LONG_PENDING_MS = 2 * 3600 * 1000, SWEEP_BATCH = 3, RECHECK_MS = 20 * 1000, RETURN_WAIT_MS = 1500, CLAIM_WAIT_MS = 150, CLAIM_STALE_MS = 60 * 1000, CHECK_AFTER_MS = 3 * 60 * 1000;
+const ABANDON_MS = 30 * 60 * 1000, LONG_PENDING_MS = 2 * 3600 * 1000, SWEEP_BATCH = 3, RETURN_WAIT_MS = 1500, CLAIM_WAIT_MS = 150, CLAIM_STALE_MS = 60 * 1000, CHECK_AFTER_MS = 3 * 60 * 1000;
 
 const save = (env, key, o) => env.USERS.put(key, JSON.stringify(o), { expirationTtl: ttlSeconds(o) });
 const note = (o, change) => { o.history = [...(o.history || []), { at: new Date().toISOString(), by: "Fleeca", change }].slice(-30); };
@@ -99,8 +99,9 @@ export async function settle(env, key, o, p) {
     else { o.paid = true; note(o, "paid via Fleeca"); }
     await env.USERS.delete(`await:${o.id}`);
     const cfg = await shopConfig(env);
+    if (!o.discordId) o.discordId = await env.USERS.get(`dmsg:${o.id}`) || undefined; // kept apart from the order, so a record that was overwritten can't make us post twice
     if (o.discordId) { const r = await editDiscord(env, o, cfg); o.discord = r.ok ? "sent" : `failed: ${r.reason}`; }
-    else { const sent = await postToDiscord(env, o, cfg); o.discord = sent.ok ? "sent" : `failed: ${sent.reason}`; if (sent.id) o.discordId = sent.id; }
+    else { const sent = await postToDiscord(env, o, cfg); o.discord = sent.ok ? "sent" : `failed: ${sent.reason}`; if (sent.id) { o.discordId = sent.id; await env.USERS.put(`dmsg:${o.id}`, sent.id, { expirationTtl: ttlSeconds(o) }).catch(() => {}); } }
     const low = o.lowAt; delete o.lowAt;
     await save(env, key, o);
     if (o.paid) await recordSale(env, o).catch(() => {}); // an online order is a sale only once it's really paid
@@ -143,11 +144,11 @@ export async function handleReturn(env, url) {
     const again = await env.USERS.get(key);
     if (again) o = JSON.parse(again);
   }
-  if (isAwaiting(o) && env.FLEECA_API_KEY && Date.now() - (o.payment.checkedAt || 0) > RECHECK_MS) { // at most one Fleeca call per order every 20 seconds
-    o.payment.checkedAt = Date.now();
+  const ck = `chk:${o.id}`; // a note of its own: this page must never save the order itself, because what it read can be older than what the webhook just wrote
+  if (isAwaiting(o) && env.FLEECA_API_KEY && !(await env.USERS.get(ck))) { // at most one Fleeca call per order a minute
     // Only to tell the customer what to expect. The webhook (or the 15-minute check if the webhook never comes) is what settles the order and
     // posts it, so that only one thing ever does: this page can run in a different place from the webhook and can't see what it has just written.
-    try { await save(env, key, o); const p = await getPayment(env, o.payment.id); if (p) seen = String(p.status || ""); }
+    try { await env.USERS.put(ck, "1", { expirationTtl: 60 }); const p = await getPayment(env, o.payment.id); if (p) seen = String(p.status || ""); }
     catch (e) { console.error("Couldn't check a payment with Fleeca"); }
   }
   const state = o.payment ? o.payment.state : "";
