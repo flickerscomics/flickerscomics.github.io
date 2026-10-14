@@ -20,7 +20,7 @@ import { HttpError, bad } from "./http.js";
 import { placeOrder, staffOrder, lookupOrder, listOrders, sendTestMessage, updateOrder } from "./orders.js";
 import { createWant, listWants, updateWant, deleteWant, announceRestocks, announceNewIssues } from "./wants.js";
 import { sendBriefing } from "./briefing.js";
-import { handleCallback, handleReturn, sweepAbandoned } from "./payments.js";
+import { handleCallback, handleReturn, sweepAbandoned, staffPayment } from "./payments.js";
 import { salesReport, reportParams } from "./sales.js";
 import { reorderData } from "./reorder.js";
 import { addStock } from "./restock.js";
@@ -312,6 +312,8 @@ async function route(request, env) {
   const wm = /^\/wants\/([^/]+)$/.exec(path);
   if (wm && method === "POST") return updateWant(env, wm[1], await readJson(request), user);
   if (wm && method === "DELETE") return deleteWant(env, wm[1]);
+  const pm = /^\/orders\/([^/]+)\/payment$/.exec(path);
+  if (pm && method === "POST") return staffPayment(env, pm[1], await readJson(request), user);
   const om = /^\/orders\/([^/]+)$/.exec(path);
   if (method === "POST" && om) return updateOrder(env, om[1], await readJson(request), user);
 

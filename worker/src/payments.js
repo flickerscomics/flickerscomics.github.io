@@ -178,3 +178,29 @@ export async function sweepAbandoned(env) {
   }
   return { checked: done };
 }
+
+/* POST /orders/:id/payment, for staff: {action: "check"} asks Fleeca again and settles the order if it's paid; {action: "manual"} is for when
+   staff can see the money arrived but the order never updated. It goes through the same settling (one Discord post, one sale) and is written in the history. */
+export async function staffPayment(env, id, body, user) {
+  const action = body && body.action;
+  if (action !== "check" && action !== "manual") throw bad(400, "That isn't a payment action.");
+  const key = await findOrderKey(env, id), raw = key && await env.USERS.get(key);
+  if (!raw) throw bad(404, "That order wasn't found. Finished orders are deleted after 14 days.");
+  const o = JSON.parse(raw), pay = o.payment;
+  if (!pay || pay.provider !== "fleeca") throw bad(409, "This order isn't an online payment.");
+  if (pay.state === "paid") return { order: o, result: "paid", warnings: [] };
+  let result;
+  if (action === "check") {
+    if (!pay.id) throw bad(409, "This order has no Fleeca payment to check.");
+    let p;
+    try { p = await getPayment(env, pay.id); } catch (e) { throw bad(502, "Couldn't reach Fleeca just now. Try again in a moment."); }
+    if (!p) throw bad(404, "Fleeca has no record of this payment.");
+    result = await settle(env, key, o, p);
+  } else {
+    const p = { status: "payment_successful", amount: o.total, mode: pay.mode, payer_name: `Marked paid by ${user.username}`, paid_at: new Date().toISOString() };
+    result = await settle(env, key, o, p);
+    if (result === "paid") { o.history = [...(o.history || []), { at: new Date().toISOString(), by: user.username, change: "paid" }].slice(-30); await save(env, key, o); }
+  }
+  const fresh = await env.USERS.get(key);
+  return { order: fresh ? JSON.parse(fresh) : o, result, warnings: [] };
+}

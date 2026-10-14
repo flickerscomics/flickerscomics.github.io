@@ -360,3 +360,32 @@ test("when the webhook and the return page both report the payment at the same m
   assert.equal(storedOrder(env, r.orderId).paid, true);
   assert.ok(storedOrder(env, r.orderId).discordId, "and the post is remembered so staff changes edit it");
 });
+
+test("staff can check a payment with Fleeca, or mark it paid by hand, and either way it posts once and counts as one sale", async () => {
+  const { st, fl } = world(), env = baseEnv();
+  await call(env, "POST", "/setup", { key: "k", username: "owner", password: "correct horse battery" });
+  const token = (await j(call(env, "POST", "/login", { username: "owner", password: "correct horse battery" }))).token;
+  const pay = id => j(call(env, "POST", `/orders/${id}/payment`, { action: "check" }, token));
+  const hand = id => j(call(env, "POST", `/orders/${id}/payment`, { action: "manual" }, token));
+
+  const a = await ordered(env, fl);
+  let r = await pay(a.r.orderId);
+  assert.equal(r.status, 200); assert.equal(r.result, "awaiting", "Fleeca hasn't heard of a payment yet");
+  assert.equal(orderPosts(st).length, 0);
+  fl.payments.get(a.pay.payment_id).status = "payment_successful";
+  r = await pay(a.r.orderId);
+  assert.equal(r.result, "paid"); assert.equal(r.order.paid, true);
+  assert.equal(orderPosts(st).length, 1);
+  await pay(a.r.orderId);
+  assert.equal(orderPosts(st).length, 1, "checking again posts nothing more");
+
+  const b = await ordered(env, fl, { items: [{ id: "a", qty: 1 }] });
+  r = await hand(b.r.orderId);
+  assert.equal(r.result, "paid"); assert.equal(storedOrder(env, b.r.orderId).paid, true);
+  assert.equal(orderPosts(st).length, 2);
+  assert.ok(storedOrder(env, b.r.orderId).history.some(h => h.by === "owner" && h.change === "paid"), "the history says who did it");
+  await hand(b.r.orderId);
+  assert.equal(orderPosts(st).length, 2, "doing it twice posts nothing more");
+  assert.equal((await j(call(env, "POST", `/orders/${b.r.orderId}/payment`, { action: "nope" }, token))).status, 400);
+  assert.equal((await j(call(env, "POST", `/orders/${b.r.orderId}/payment`, { action: "manual" }))).status, 401, "signed-in staff only");
+});

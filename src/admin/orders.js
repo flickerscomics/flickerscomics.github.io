@@ -53,12 +53,12 @@ function orderHTML(o, expanded) {
   const s = orderStatus(o), finish = o.method === "post" ? "Mark posted" : "Mark collected";
   const btn = (attrs, text, cls = "") => `<button type="button" class="btn btn-small ${cls}" data-oid="${esc(o.id)}" ${attrs}>${text}</button>`;
   const actions = [];
-  if (awaiting(o)) { /* only cancelling: it's marked paid by itself when the customer pays */ }
+  const tool = (act, text) => `<button type="button" class="btn btn-small btn-quiet" data-oact="${act}" data-oid="${esc(o.id)}">${text}</button>`;
+  if (awaiting(o)) actions.push(tool("paycheck", "Check payment"), tool("paymanual", "Mark paid (manual)")); // it's marked paid by itself when the customer pays; these are for when it wasn't
   else if (s === "new") actions.push(btn('data-status="ready"', "Mark ready", "btn-yellow"), btn('data-status="done"', finish));
   else if (s === "ready") actions.push(btn('data-status="done"', finish, "btn-yellow"), btn('data-status="new"', "Back to new"));
   else if (s === "done" || s === "cancelled") actions.push(btn('data-status="new"', "Reopen"));
   if (!awaiting(o)) actions.push(btn(`data-paid="${o.paid ? "no" : "yes"}"`, o.paid ? "Mark unpaid" : "Mark paid"));
-  const tool = (act, text) => `<button type="button" class="btn btn-small btn-quiet" data-oact="${act}" data-oid="${esc(o.id)}">${text}</button>`;
   actions.push(tool("copy", "Copy message"), tool("print", "Save receipt"));
   if (s === "new" || s === "ready") actions.push(btn('data-status="cancelled"', "Cancel order", "btn-danger"));
   const history = [o.source === "staff" ? `Keyed in by ${o.enteredBy} · ${orderWhen(o.placedAt)}` : `Placed by the customer · ${orderWhen(o.placedAt)}`, ...(o.history || []).filter(h => h.change !== "entered").map(h => `${HISTORY_NAME(h.change, o)} by ${h.by} · ${orderWhen(h.at)}`)];
@@ -166,6 +166,21 @@ export async function renderOrders() {
     const id = b.dataset.oid, o = orders.find(x => x.id === id); if (!o) return;
     if (b.dataset.oact === "copy") { copyText(orderMessage(o, cfg), `Message for ${o.name} copied. Paste it into your text.`); return; }
     if (b.dataset.oact === "print") { saveReceiptImage([o], cfg); return; }
+    if (b.dataset.oact === "paycheck" || b.dataset.oact === "paymanual") {
+      const manual = b.dataset.oact === "paymanual";
+      const pay = async () => {
+        b.disabled = true;
+        try {
+          const r = await api(`/orders/${encodeURIComponent(id)}/payment`, { method: "POST", body: { action: manual ? "manual" : "check" } });
+          Object.assign(o, r.order);
+          say(r.result === "paid" ? `${id}: marked paid.` : r.result === "flagged" ? `${id}: Fleeca's payment doesn't match this order. Check it in Fleeca's Merchant Center.` : `${id}: Fleeca hasn't confirmed the payment yet.`, r.result === "paid" ? "ok" : "error");
+          paint();
+        } catch (e) { b.disabled = false; say(e.message, "error"); }
+      };
+      if (manual) say(`Mark ${id} (${o.name}, ${money(o.total)}) as paid? Only do this if you can see the money arrived in the shop's Fleeca account.`, "error", [{ label: "Mark paid", danger: true, fn: pay }, { label: "Not yet", fn: () => say("") }]);
+      else pay();
+      return;
+    }
     const body = b.dataset.status ? { status: b.dataset.status } : { paid: b.dataset.paid === "yes" };
     const go = async () => {
       b.disabled = true;
