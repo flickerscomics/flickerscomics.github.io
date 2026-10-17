@@ -45,6 +45,9 @@ npx wrangler deploy
 
 Wrangler prints the Worker's address, like `https://flickers-staff-api.yourname.workers.dev`.
 
+**Token expiry.** GitHub tokens run out. Put the day yours does in `worker/wrangler.toml` as `GITHUB_TOKEN_EXPIRES = "YYYY-MM-DD"`, and the daily briefing warns staff in the Discord channel for the last two weeks.
+When you renew it: make the new token, run `npx wrangler secret put GITHUB_TOKEN`, update the date, and `npx wrangler deploy`.
+
 ## 3. Point the site at it
 
 Edit `data/config.json` and set `adminApi` to that address, then commit. When the deploy finishes,

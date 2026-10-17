@@ -117,3 +117,15 @@ test("overdue orders get one ping each in the orders channel, once, however long
   await run(env);
   assert.equal(posts.filter(p => /overdue/.test(p.content || "")).length, 1, "the next day they aren't pinged again");
 });
+
+test("the briefing warns when the GitHub token is about to run out, and only then", async () => {
+  const inDays = n => new Date(Date.now() + n * 86400000).toISOString().slice(0, 10);
+  const note = async expires => { const { env, posts } = setup(); env.GITHUB_TOKEN_EXPIRES = expires; await run(env); return field(posts[0], "GitHub token"); };
+  assert.equal(await note(inDays(60)), undefined, "nothing to say two months out");
+  assert.equal(await note(undefined), undefined, "and nothing when no date is set");
+  assert.match(await note(inDays(5)), /expires in \*\*5 days\*\*/);
+  assert.match(await note(inDays(0)), /expires \*\*today\*\*/);
+  assert.match(await note(inDays(-3)), /\*\*expired\*\*/);
+  const { env, posts } = setup(); env.GITHUB_TOKEN_EXPIRES = inDays(3); await run(env);
+  assert.match(posts[0].embeds[0].description, /1 thing needs a look/, "it counts as something to do");
+});

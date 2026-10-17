@@ -1,0 +1,44 @@
+name: Browser checks
+
+# Drives a real browser through the shop and the staff area (qa/): ordering, search, filters, the wanted list, the staff tabs, accessibility.
+# It runs after every push to main but is separate from the deploy, so a slow or flaky run never holds the site back.
+# If it fails, open the run and download the "browser-check-logs" file (logs and screenshots). "Run workflow" starts it by hand.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: browser-checks
+  cancel-in-progress: true
+
+jobs:
+  browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm ci
+        working-directory: qa
+      - uses: actions/cache@v4
+        with:
+          path: .cache
+          key: covers-${{ hashFiles('assets/covers/**', 'build/build.mjs') }}
+          restore-keys: covers-
+      - run: node qa/run.mjs
+        env:
+          QA_BROWSER: /usr/bin/google-chrome
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: browser-check-logs
+          path: /tmp/flickers-qa
+          if-no-files-found: ignore

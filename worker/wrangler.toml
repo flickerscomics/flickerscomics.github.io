@@ -18,6 +18,8 @@ FLEECA_PAYMENTS = "true"
 FLEECA_MODE = "1"
 # The daily briefing always pings this role (the @Staff role id). Its channel is the secret DISCORD_BRIEFING_WEBHOOK_URL (optional).
 DISCORD_BRIEFING_ROLE = "1556428080594161764"
+# The day the GitHub token (secret GITHUB_TOKEN) runs out. The daily briefing warns staff in the last 14 days. Update it when the token is renewed.
+GITHUB_TOKEN_EXPIRES = "2026-12-03"
 # The role pinged in the orders channel: once for each new order, when an order is ready, and once when one is overdue.
 DISCORD_PING_ROLE = "1556428080594161764"
 

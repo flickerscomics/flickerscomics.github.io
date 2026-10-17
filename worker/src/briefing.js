@@ -50,9 +50,23 @@ export async function gatherBriefing(env) {
   };
 }
 
+/* The shop's GitHub token (what lets the staff area and orders change stock) runs out on a set day. GITHUB_TOKEN_EXPIRES (YYYY-MM-DD, a plain setting in wrangler.toml)
+   lets the briefing warn staff for the last two weeks, so it's renewed before stock stops updating. Returns the warning text, or null when there's nothing to say. */
+export function tokenNote(env, now = Date.now()) {
+  const on = String(env.GITHUB_TOKEN_EXPIRES || "");
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(on)) return null;
+  const today = new Date(now).toISOString().slice(0, 10), days = Math.round((Date.parse(on + "T00:00:00Z") - Date.parse(today + "T00:00:00Z")) / 86400000); // whole calendar days
+  if (!(days <= 14)) return null;
+  const fix = "Renew it and update the Worker's GITHUB_TOKEN secret (see docs/SETUP.md).";
+  if (days < 0) return `The shop's GitHub token **expired** on ${on}. Stock changes and orders won't update the shop until it's renewed. ${fix}`;
+  if (days === 0) return `The shop's GitHub token expires **today** (${on}). ${fix}`;
+  return `The shop's GitHub token expires in **${days} day${days === 1 ? "" : "s"}** (${on}). ${fix}`;
+}
+
 export function briefingEmbed(b, site = "") {
   const orderLine = o => `• **${o.id}** · ${cut(escMd(o.name), 40)} · ${money(o.total)}${o.paid ? "" : " · not paid"}`;
   const fields = [];
+  if (b.tokenNote) fields.push({ name: "🔑 Renew the GitHub token", value: b.tokenNote });
   fields.push({ name: "📦 Open orders", value: b.newOrders + b.ready ? `${b.newOrders} new, ${b.ready} ready${b.oldest ? `\nOldest: **${b.oldest.id}**, placed ${ago(b.oldest.placedAt)}` : ""}` : "None. All caught up." });
   if (b.due.length) fields.push({ name: `🕗 Collections due (${b.due.length})`, value: more(b.due.map(o => `${orderLine(o)}${o.collectDate < b.today ? " · **overdue** since " + o.collectDate : ""}`)) });
   if (b.toPost.length) fields.push({ name: `✉️ To post (${b.toPost.length})`, value: more(b.toPost.map(orderLine)) });
@@ -63,7 +77,7 @@ export function briefingEmbed(b, site = "") {
   if (b.soldOut) fields.push({ name: "🚫 Sold out", value: `${b.soldOut} comic${b.soldOut === 1 ? "" : "s"}. See the Reorder tab.`, inline: true });
   if (b.requests) fields.push({ name: "💬 Special requests", value: `${b.requests} waiting in Wanted.`, inline: true });
   if (b.awaitingPay) fields.push({ name: "⏳ Waiting on Fleeca", value: `${b.awaitingPay} order${b.awaitingPay === 1 ? "" : "s"} not paid yet (cancelled automatically after 30 minutes).`, inline: true });
-  const todo = b.due.length + b.toPost.length + b.check.length + b.backInStock.length;
+  const todo = b.due.length + b.toPost.length + b.check.length + b.backInStock.length + (b.tokenNote ? 1 : 0);
   const day = new Intl.DateTimeFormat("en-GB", { weekday: "long", day: "numeric", month: "long", timeZone: "UTC" }).format(new Date(b.today + "T12:00:00Z"));
   return {
     title: `📋 Daily briefing · ${day}`,
@@ -105,6 +119,7 @@ export async function pingOverdue(env, b) {
 
 export async function sendBriefing(env) {
   const b = await gatherBriefing(env);
+  b.tokenNote = tokenNote(env);
   await pingOverdue(env, b).catch(() => console.error("Overdue ping failed"));
   const role = briefingRole(env);
   const target = { ...env, DISCORD_WEBHOOK_URL: env.DISCORD_BRIEFING_WEBHOOK_URL || env.DISCORD_WEBHOOK_URL };
