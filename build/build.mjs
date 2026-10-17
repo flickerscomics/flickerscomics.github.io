@@ -62,7 +62,7 @@ const groups = [...counts.entries()]
   .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
 
 /* ---------- start clean ---------- */
-fs.rmSync(DIST, { recursive: true, force: true });
+fs.rmSync(DIST, { recursive: true, force: true, maxRetries: 8, retryDelay: 250 }); // Windows can briefly refuse to delete files a moment after a server or scanner touched them
 fs.mkdirSync(DIST, { recursive: true });
 
 /* ---------- fonts (self-hosted, latin subset) ----------
@@ -99,7 +99,7 @@ wr(".nojekyll", "");
    and only pictures that are new or changed get encoded. Bump ENCODING when the settings below change. */
 const ENCODING = "1";
 const SIZES = [[300, 68, 46], [450, 70, 48], [600, 72, 50]]; // width, WebP quality, AVIF quality
-const CACHE = path.join(ROOT, ".cache", "covers");
+const CACHE = path.join(ROOT, ".cache", FIXTURE ? "covers-qa" : "covers"); // the test catalogue has its own, so building it never clears the real covers' pictures
 fs.mkdirSync(CACHE, { recursive: true });
 const images = [...new Set(products.map(p => p.image).filter(Boolean))], inUse = new Set();
 await Promise.all(images.map(async img => {

@@ -28,7 +28,8 @@ const only = process.argv.slice(2);
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const up = async url => { try { return (await fetch(url)).ok; } catch (e) { return false; } };
 const node = (args, env = {}, opts = {}) => spawn(process.execPath, args, { cwd: ROOT, env: { ...process.env, ...env }, ...opts });
-async function waitFor(url) { for (let i = 0; i < 50; i++) { if (await up(url)) return; await sleep(200); } throw new Error("Nothing answered at " + url); }
+const answers = async url => { try { await fetch(url); return true; } catch (e) { return false; } }; // any answer counts: on a clean checkout the site is not built yet, so the server answers 404 until the first build
+async function waitFor(url) { for (let i = 0; i < 50; i++) { if (await answers(url)) return; await sleep(200); } throw new Error("Nothing answered at " + url); }
 
 function build(env, soldOut) {
   const extra = FIXTURE ? { QA_FIXTURE: FIXTURE } : {};
@@ -70,7 +71,7 @@ try {
         child.stdout.on("data", d => { out += d; });
         child.stderr.on("data", d => { out += d; });
         code = await new Promise(res => child.on("close", res));
-      } finally { api.kill(); }
+      } finally { const gone = new Promise(r => { api.once("exit", r); setTimeout(r, 5000); }); api.kill(); await gone; }
       fs.writeFileSync(path.join(OUT, name + ".log"), out);
       const bad = verdict(out, code);
       if (bad.length) failures++;
@@ -78,7 +79,7 @@ try {
     }
   }
 } finally {
-  if (server) server.kill();
+  if (server) { const gone = new Promise(r => { server.once("exit", r); setTimeout(r, 5000); }); server.kill(); await gone; } // wait until it has really stopped: on Windows it can still hold dist/ for a moment, which breaks the next build
   try { build({}, false); } catch (e) { /* leave dist as it is */ } // put dist back to the plain build
 }
 console.log(failures ? `\n${failures} check(s) failed` : "\nAll checks passed");

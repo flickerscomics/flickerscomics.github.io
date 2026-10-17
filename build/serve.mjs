@@ -25,6 +25,6 @@ http.createServer((req, res) => {
   let file = path.join(dist, p);
   if (!file.startsWith(dist)) { res.writeHead(403).end(); return; }
   if (fs.existsSync(file) && fs.statSync(file).isDirectory()) file = path.join(file, "index.html");
-  if (!fs.existsSync(file)) { send(req, res, 404, path.join(dist, "404.html")); return; }
+  if (!fs.existsSync(file)) { const nf = path.join(dist, "404.html"); if (fs.existsSync(nf)) send(req, res, 404, nf); else res.writeHead(404, { "Content-Type": "text/plain" }).end("Not built yet"); return; } // before the first build there is no 404 page either
   send(req, res, 200, file);
 }).listen(port, () => console.log(`Serving dist/ at http://localhost:${port}/`));
