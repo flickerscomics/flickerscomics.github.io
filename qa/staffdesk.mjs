@@ -131,7 +131,8 @@ check("publishing saves the new numbers and the New label", published[a.id].stoc
 /* ---- reorder ---- */
 await page.$eval('[data-tab="reorder"]', t => t.click()); await page.waitForSelector(".reorder-table, .admin-empty"); await sleep(400);
 const hasRows = (await page.$(".reorder-table")) !== null;
-check("the Reorder tab lists what's low or gone", hasRows);
+const anyLow = (await (await fetch(BASE + "/data/shop.json")).json()).products.some(p => p.stock <= 2); // the list only has comics that are low or gone
+check("the Reorder tab lists what's low or gone", anyLow ? hasRows : !hasRows);
 if (hasRows) {
   const first = await page.$eval(".reorder-table tbody tr", r => ({ title: r.querySelector("th").textContent, qty: r.querySelector("[data-qty]").value }));
   await page.$eval("[data-qty]", e => { e.value = "2"; e.dispatchEvent(new Event("change", { bubbles: true })); });

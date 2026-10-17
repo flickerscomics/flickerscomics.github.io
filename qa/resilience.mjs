@@ -41,8 +41,9 @@ const out = n => `${OUT}/${n}.png`;
   check("Add buttons and the cart are hidden rather than dead", visible.add === 0 && visible.cart === "none", JSON.stringify(visible));
   check("a note says JavaScript is needed to order", visible.note);
   await page.screenshot({ path: out("res-nojs") });
-  await page.goto(BASE + "/comic/batman-14/", { waitUntil: "networkidle0" });
-  check("a comic page reads fine without JavaScript", (await page.$eval("h1", e => e.textContent)) === "Batman #14");
+  const first = (await (await fetch(BASE + "/data/shop.json")).json()).products[0]; // whatever comic is on the shelf today
+  await page.goto(BASE + "/comic/" + first.id + "/", { waitUntil: "networkidle0" });
+  check("a comic page reads fine without JavaScript", (await page.$eval("h1", e => e.textContent)).startsWith(first.title.split(" (")[0]), first.id);
   await page.screenshot({ path: out("res-nojs-comic") });
   await page.close();
 }

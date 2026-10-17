@@ -13,7 +13,7 @@ await page.goto(BASE + "/admin/", { waitUntil: "networkidle0" });
 await page.type("#u", "owner"); await page.type("#pw", "owner-password-1");
 await page.click("#loginBtn"); await page.waitForSelector("#panel .arow", { timeout: 8000 });
 
-const pills = sel => page.$$eval(sel, els => els.map(e => e.textContent.trim()));
+const pills = sel => page.$$eval(sel, els => els.map(e => [...e.querySelectorAll(".pill")].map(p => p.textContent.trim()).join(" "))); // only the label pills, not words that happen to be in a title
 const weekCount = () => page.$$eval("#aList .pill-week", e => e.length);
 const bulk = async (picks) => {
   await page.click('[data-bulk="labels"]');
@@ -33,13 +33,15 @@ await page.click('#bulkForm button[type="submit"]');
 check("choosing nothing gives a message and keeps the dialog open", (await page.$eval("#bulkError", e => e.textContent)).length > 0 && !!(await page.$("#bulkForm")));
 await page.keyboard.press("Escape");
 
+const variantRows = async () => (await pills("#aList .arow")).map(t => /Variant/.test(t));
+const variantsBefore = await variantRows(); // the shop may already have a Variant comic of its own
 await bulk({ exclusive: "add", variant: "add" });
 let ex = (await pills("#aList .arow")).filter(t => /Exclusive/.test(t) && /Variant/.test(t)).length;
 check("five comics now carry Exclusive and Variant", ex === 5, String(ex));
 
 await bulk({ variant: "remove" });
-ex = (await pills("#aList .arow")).filter(t => /Variant/.test(t)).length;
-check("removing Variant from the selection clears it", ex === 0, String(ex));
+const variantsAfter = await variantRows();
+check("removing Variant from the selection clears it (the rest are untouched)", variantsAfter.slice(0, 5).every(v => !v) && variantsAfter.slice(5).join() === variantsBefore.slice(5).join(), variantsAfter.join());
 
 const before = await weekCount();
 await bulk({ week: "add" });
@@ -49,7 +51,9 @@ const msg = await page.$eval("#panel [role=status], .say, #adminMsg", e => e.tex
 check("it explains that only three show", /only the first three show/.test(await page.evaluate(() => document.body.innerText)), msg.slice(0, 80));
 
 await bulk({ week: "remove", exclusive: "remove" });
-check("removing takes them off New this week and removes Exclusive", (await weekCount()) === before && !firstFive.slice(0, 5).every(Boolean) && !(await pills("#aList .arow")).some(t => /Exclusive/.test(t)));
+const wk = await weekCount(), exAny = (await pills("#aList .arow")).filter(t => /Exclusive/.test(t)).length;
+const fiveNow = await page.$$eval("#aList .arow", rows => rows.slice(0, 5).map(r => /New this week/.test(r.textContent)));
+check("removing takes them off New this week and removes Exclusive", fiveNow.every(v => !v) && exAny === 0, `week ${before} -> ${wk} (the shop may already feature some of them); exclusive left ${exAny}`);
 
 const publishLabel = await page.evaluate(() => document.body.innerText.includes("Publish changes"));
 check("changes wait for Publish (nothing saved yet)", publishLabel);

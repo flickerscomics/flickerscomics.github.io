@@ -183,8 +183,9 @@ export function detailHTML(p, cats, { imgBase = "", level = 1, headingId = "", c
       <p class="qv-price">${money(p.price)}</p>
       ${p.blurb ? `<p class="qv-blurb">${esc(p.blurb)}</p>` : ""}
       ${p.staff ? `<p class="qv-talker">“${esc(p.staff)}”<small>Staff pick</small></p>` : ""}
+      ${buy}
       <dl class="specs">${specRows(p, cats).map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join("")}</dl>
-      ${buy}${after}
+      ${after}
     </div>
   </div>`;
 }

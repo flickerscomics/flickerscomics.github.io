@@ -3,7 +3,9 @@ const BASE = "http://localhost:8080";
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const results = [];
 const check = (name, ok, extra = "") => { results.push(!!ok); console.log((ok ? "PASS " : "FAIL ") + name + (extra ? "  [" + extra + "]" : "")); };
-const SOLD = "the-deadman-5", FOLLOW = "batman-14";
+const SOLD = "the-deadman-5";
+const shopNow = (await (await fetch(BASE + "/data/shop.json")).json()).products;
+const FOLLOW = (shopNow.find(p => p.stock > 0 && shopNow.filter(q => q.title === p.title).length > 1) || shopNow.find(p => p.stock > 0)).id; // an in-stock comic from a series
 const browser = await launch();
 const errors = [];
 const mk = async (w = 1280, h = 900) => { const p = await browser.newPage(); await p.setViewport({ width: w, height: h }); p.on("pageerror", e => errors.push(e.message)); p.on("console", m => { if (m.type() === "error" && !/Failed to load resource/.test(m.text())) errors.push(m.text()); }); return p; };
@@ -35,8 +37,9 @@ await shopper.goto(`${BASE}/comic/${SOLD}/`, { waitUntil: "networkidle0" }); awa
 check("sold-out comic page: Tell me when it's back + Follow + Save", !!(await shopper.$('[data-buy] [data-want="restock"]')) && !!(await shopper.$('[data-buy] [data-want="series"]')) && !!(await shopper.$("[data-buy] .save-link")));
 await shopper.goto(`${BASE}/comic/${FOLLOW}/`, { waitUntil: "networkidle0" }); await sleep(300);
 check("in-stock comic page has no restock button but has Follow", !(await shopper.$('[data-buy] [data-want="restock"]')) && !!(await shopper.$('[data-buy] [data-want="series"]')));
+const followLabel = (await shopper.$eval('[data-buy] [data-want="series"]', e => e.textContent)).trim();
 await clk(shopper, '[data-buy] [data-want="series"]'); await sleep(300);
-check("follow dialog names the series", (await shopper.$eval("#wantTitle", e => e.textContent)) === "Follow Batman");
+check("follow dialog names the series", (await shopper.$eval("#wantTitle", e => e.textContent)) === followLabel, followLabel);
 await typ(shopper, "#w-name", "Pat Pullist"); await typ(shopper, "#w-phone", "5550202");
 await clk(shopper, "#wantBtn"); await sleep(900);
 check("following works", (await shopper.$eval("#wantDoneTitle", e => e.textContent)) === "You're following it");
@@ -62,7 +65,7 @@ await clk(staff, '[data-tab="wanted"]'); await staff.waitForSelector(".want-h");
 const heads = await staff.$$eval(".want-h", h => h.map(x => x.textContent.replace(/\s+/g, " ").trim()));
 check("Wanted tab sections with counts", heads.join(" | ") === "Ready to contact 1 | Waiting 2 | Contacted 0", heads.join(" | "));
 const text = await staff.$eval("#wantedList", e => e.textContent);
-check("shows who, phone and what", text.includes("Wanda Waits") && text.includes("555 0101") && text.includes("The Deadman #5") && text.includes("Follows Batman") && text.includes("Absolute Wonder Woman"));
+check("shows who, phone and what", text.includes("Wanda Waits") && text.includes("555 0101") && text.includes("The Deadman #5") && text.includes("Follows " + followLabel.replace(/^Follow /, "")) && text.includes("Absolute Wonder Woman"));
 await clk(staff, '.want.is-action [data-wid]'); await sleep(700);
 check("marking a request contacted moves it down", (await staff.$$eval(".want-h", h => h.map(x => x.textContent.replace(/\s+/g, " ").trim()).join(" | "))) === "Ready to contact 0 | Waiting 2 | Contacted 1");
 

@@ -252,7 +252,8 @@ function openQuickView(id) {
   qvState = { id, qty: 1 };
   renderQV();
   if (!qv.open) qv.showModal();
-  (qv.querySelector('[data-qv="add"]') || qv.querySelector("[data-close]"))?.focus();
+  (qv.querySelector('[data-qv="add"]') || qv.querySelector("[data-close]"))?.focus({ preventScroll: true }); // focusing the button must not scroll the title and cover out of sight
+  qv.scrollTop = 0;
 }
 
 /* ===================== cart drawer ===================== */

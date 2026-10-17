@@ -758,7 +758,20 @@ select option,select optgroup{background-color:var(--paper-raised);color:var(--i
 @media (max-width:640px){
   .cart-bar:not([hidden]){display:block;position:fixed;left:0;right:0;bottom:0;z-index:45;padding:10px max(14px,env(safe-area-inset-right)) calc(10px + env(safe-area-inset-bottom,0px)) max(14px,env(safe-area-inset-left));background:linear-gradient(180deg,transparent,var(--paper) 38%)}
   .cart-bar .btn{justify-content:space-between;width:100%;padding:14px 18px;font-size:16px}
-  body.has-cartbar{padding-bottom:84px}
+  body.has-cartbar:not(:has(.item-page)) .site-footer{padding-bottom:calc(96px + env(safe-area-inset-bottom,0px))} /* room for the bar, in the footer's own colour (body padding showed a light strip) */
   body.has-cartbar .to-top{bottom:calc(84px + env(safe-area-inset-bottom,0px))}
   body.has-cartbar .toast{bottom:calc(92px + env(safe-area-inset-bottom,0px))}
+}
+
+/* polish: a solid cart bar, one pinned bar on comic pages, a slimmer checkout footer on phones, space under the buy box */
+.qv-buy + .specs{margin-top:22px}
+@media (max-width:640px){
+  .cart-bar:not([hidden]){background:var(--band);border-top:3px solid var(--yellow)}
+  body:has(.item-page) .cart-bar{display:none!important}
+  body:has(.item-page).has-cartbar .to-top{bottom:max(16px,env(safe-area-inset-bottom))}
+  body:has(.item-page).has-cartbar .toast{bottom:calc(86px + env(safe-area-inset-bottom,0px))}
+  .co-foot{gap:6px 12px;padding-top:10px;padding-bottom:calc(10px + env(safe-area-inset-bottom,0px))}
+  .foot-total{gap:0 10px}
+  .foot-total .hint{flex-basis:100%;font-size:12px;line-height:1.3}
+  .co-foot .btn{flex:1 1 100%}
 }

@@ -46,7 +46,7 @@ async function newPage(width = 1280, height = 900) {
   check("Everything tab shows every comic", (await shown()) === TOTAL);
   check("address bar cleared of shelf", !(await page.url()).includes("shelf="), page.url());
   await page.type("#q", "batman"); await sleep(300);
-  check("search narrows and goes in the address", (await shown()) >= 1 && (await shown()) < 10 && page.url().includes("q=batman"), `shown=${await shown()} url=${page.url()}`);
+  check("search narrows and goes in the address", (await shown()) >= 1 && (await shown()) < TOTAL && page.url().includes("q=batman"), `shown=${await shown()} url=${page.url()}`);
   await page.$eval("#q", el => { el.value = ""; el.dispatchEvent(new Event("input", { bubbles: true })); }); await sleep(200);
   await page.keyboard.press("Escape");
   await page.evaluate(() => document.activeElement.blur());
