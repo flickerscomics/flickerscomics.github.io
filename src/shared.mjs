@@ -76,6 +76,7 @@ export function searchItems(items, query) {
   if (!tokens.length) return { mode: "all", flags: items.map(() => true) };
   const isNum = t => /^\d+$/.test(t);
   const strict = (it, t) => it.words.some(w => (isNum(t) ? w === t : w.startsWith(t)));
+  /** @type {[string, (it: { words: string[], blurb: string }, t: string) => boolean][]} */
   const attempts = [
     ["exact", (it, t) => strict(it, t)],
     ["blurb", (it, t) => strict(it, t) || (!isNum(t) && it.blurb.includes(t))],
@@ -151,7 +152,7 @@ export function coverHTML(p, { imgBase = "", lazy = true, sizes = "(min-width: 1
   return `<span class="cover${sold ? " is-sold" : ""}"><picture><source type="image/avif" srcset="${set("avif")}" sizes="${sizes}"><img src="${src}-450.webp" srcset="${set("webp")}" sizes="${sizes}" width="300" height="450" alt=""${priority ? ' fetchpriority="high"' : lazy ? ' loading="lazy" decoding="async"' : ""}></picture>${sold ? `<span class="sold-band" aria-hidden="true">Sold out</span>` : ""}</span>`;
 }
 /* "assets/covers/batman-423-muu6wx03.jpg" -> "batman-423-muu6wx03" */
-export function coverName(path) { return String(path).split("/").pop().replace(/\.[a-z0-9]+$/i, ""); }
+export function coverName(path) { return (String(path).split("/").pop() || "").replace(/\.[a-z0-9]+$/i, ""); }
 
 /* ---------- a comic's detail block (comic page and quick view) ---------- */
 export function stickerHTML(p) {

@@ -4,7 +4,9 @@ export const escMd = s => String(s).replace(/([\\*_~`|>])/g, "\\$1").replace(/</
 export const cut = (s, n) => (s.length > n ? s.slice(0, n - 1) + "…" : s);
 export const pingRole = env => (/^\d{5,25}$/.test(String(env.DISCORD_PING_ROLE || "")) ? String(env.DISCORD_PING_ROLE) : null);
 
-/* One call to the webhook, with a single retry if Discord says slow down. */
+/** One call to the webhook, with a single retry if Discord says slow down.
+   @param {any} env
+   @param {{ method?: string, messageId?: string, wait?: boolean, payload: any }} opts */
 export async function webhook(env, { method = "POST", messageId, wait = false, payload }) {
   const raw = String(env.DISCORD_WEBHOOK_URL || "").trim(); // a pasted secret can pick up a stray space or line break
   if (!raw) return { ok: false, reason: "not configured" };

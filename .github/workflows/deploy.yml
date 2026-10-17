@@ -32,6 +32,7 @@ jobs:
           path: .cache
           key: covers-${{ hashFiles('assets/covers/**', 'build/build.mjs') }}
           restore-keys: covers-
+      - run: npm run typecheck
       - run: npm test
       - run: npm run build
       - uses: actions/upload-pages-artifact@v3

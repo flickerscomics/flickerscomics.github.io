@@ -64,6 +64,7 @@ function dateInRange(iso, daysAhead) {
 
 /* staff: an order keyed in by someone at the counter or on the phone. The phone number is optional, a collection day defaults to today,
    and a name can be short ("Walk-in"). Everything else is checked the same way. */
+/** @returns {import("./types.js").Order} */
 export function buildOrder(raw, shop, { test = false, staff = false } = {}) {
   if (!raw || typeof raw !== "object") throw bad(400, "That order wasn't valid.");
   const cfg = shop.config || {}, byId = new Map((shop.products || []).map(p => [p.id, p]));
@@ -200,6 +201,7 @@ export function staffOrder(env, raw, user) { return createOrder(env, raw, user);
 /* Online orders paid through Fleeca wait for the payment before they reach Discord, count as a sale or raise a stock alert (payments.js). */
 export const isAwaiting = o => !!o.payment && o.payment.state === "awaiting";
 
+/** @param {any} env  @param {any} raw  @param {{ username: string } | null} [user] signed-in staff, for orders keyed in at the counter */
 async function createOrder(env, raw, user = null) {
   let shop = await loadShop(env);
   if (user) { try { shop = { ...shop, products: (await readStock(env)).products }; } catch (e) { /* the published list will do */ } } // freshest prices and stock
@@ -233,14 +235,14 @@ async function createOrder(env, raw, user = null) {
     if (raw.paid === true) record.paid = true;
     if (raw.handedOver === true && order.method === "collect") { // a counter sale: it's already in the customer's hands
       Object.assign(record, { status: "done", completedAt: at });
-      record.history.push({ at, by: user.username, change: "done" });
+      record.history = [...(record.history || []), { at, by: user.username, change: "done" }];
     }
   }
   await env.USERS.put(key, JSON.stringify(record), { expirationTtl: ttlSeconds(record) }); // saved before Discord is tried
   if (online) {
     try {
       const pay = await createPayment(env, { amount: order.total, description: `Flickers Comics order ${order.id}` });
-      record.payment.id = pay.id;
+      if (record.payment) record.payment.id = pay.id;
       await env.USERS.put(`pay:${pay.id}`, key, { expirationTtl: PAY_TTL });
       await env.USERS.put(`await:${order.id}`, "1", { expirationTtl: PAY_TTL, metadata: { p: Date.parse(order.placedAt) } }); // what the sweep looks through
       await env.USERS.put(key, JSON.stringify(record), { expirationTtl: ttlSeconds(record) });

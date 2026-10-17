@@ -19,7 +19,7 @@ export const fleecaMode = env => (String(env.FLEECA_MODE) === "1" ? 1 : 0);
 export const modeNumber = m => (m === 1 || m === "1" || m === "live" ? 1 : m === 0 || m === "0" || m === "sandbox" ? 0 : null);
 
 export class FleecaError extends Error {
-  constructor(status, message) { super(message); this.status = status; }
+  constructor(status, message) { super(message); this.status = status; this.detail = ""; /* a short, safe note from Fleeca's answer, for the log */ }
 }
 
 async function call(env, path, init = {}) {
