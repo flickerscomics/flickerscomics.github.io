@@ -391,6 +391,19 @@ ${cards}
     </div>
   </section>
 
+  <section class="request-band" id="request" data-want-only hidden aria-labelledby="requestTitle">
+    <div class="wrap">
+      <div class="request-card">
+        <span class="request-burst" aria-hidden="true">Wanted!</span>
+        <div class="request-copy">
+          <h2 class="request-title" id="requestTitle">Can't find your comic?</h2>
+          <p>Tell us which issue, series or trade you're after and we'll see if we can get it in.</p>
+        </div>
+        <button type="button" class="btn btn-yellow btn-xl" data-want="request" hidden>Request a comic</button>
+      </div>
+    </div>
+  </section>
+
   ${howSection(cfg)}
   ${hoursSection(cfg)}
 </main>

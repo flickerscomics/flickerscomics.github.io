@@ -729,3 +729,19 @@ select option,select optgroup{background-color:var(--paper-raised);color:var(--i
 }
 @media (max-width:380px){.hero-stats dd{font-size:24px}.hero-actions{grid-template-columns:1fr}.dividers .divider{padding-inline:13px}}
 @media (max-width:640px){.chip-select:has(#pubFilter)>span{display:none}.chip-select:has(#pubFilter) select{padding-left:6px}}
+
+/* request a comic: a big, hard-to-miss band between the shelves and the ordering steps */
+.request-band{padding-block:clamp(28px,4vw,52px)}
+.request-card{position:relative;display:flex;align-items:center;gap:clamp(16px,3vw,36px);flex-wrap:wrap;padding:clamp(22px,3.5vw,38px) clamp(20px,3.5vw,40px) clamp(22px,3.5vw,38px) clamp(104px,14vw,150px);border:3px solid var(--ink-fixed);border-radius:16px;background:var(--kraft);color:var(--ink-fixed);box-shadow:8px 8px 0 var(--ink-fixed)}
+.request-burst{position:absolute;left:clamp(14px,2.4vw,26px);top:50%;display:grid;place-items:center;width:clamp(76px,10vw,104px);aspect-ratio:1;border:3px solid var(--ink-fixed);border-radius:50%;background:var(--magenta);color:#fff;font-family:var(--font-comic);font-size:clamp(18px,2.4vw,24px);letter-spacing:.04em;line-height:1;text-align:center;transform:translateY(-50%) rotate(-12deg);box-shadow:3px 3px 0 var(--ink-fixed)}
+.request-copy{flex:1 1 280px}
+.request-title{margin:0 0 6px;font-family:var(--font-display);font-weight:400;font-size:clamp(30px,4.4vw,50px);line-height:1;letter-spacing:.01em;text-transform:uppercase}
+.request-copy p{margin:0;max-width:46ch;font-weight:600;font-size:clamp(15px,1.6vw,18px)}
+.btn-xl{padding:16px 30px;font-size:clamp(18px,2vw,22px);font-weight:900;letter-spacing:.02em;text-transform:uppercase}
+@media (max-width:640px){
+  .request-card{padding:84px 18px 22px;text-align:center;justify-content:center}
+  .request-burst{left:50%;top:0;transform:translate(-50%,-38%) rotate(-8deg);width:84px}
+  .request-copy p{margin-inline:auto}
+  .request-card .btn-xl{width:100%}
+}
+@media (forced-colors:active){.request-card{border-color:CanvasText;box-shadow:none}}
