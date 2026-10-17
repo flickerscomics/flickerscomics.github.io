@@ -56,7 +56,7 @@ test("a customer can ask to be told when a sold-out comic is back, once", async 
   assert.equal(r.status, 200);
   assert.match(r.id, /^W-[A-Z2-9]{6}$/);
   assert.equal(embedOf(st)[0].title, "Notify when back in stock");
-  assert.match(embedOf(st)[0].description, /Gone Girl #5/);
+  assert.match(embedOf(st)[0].fields[0].value, /Gone Girl #5/);
   const again = await want(env, { phone: "5550142" });
   assert.equal(again.already, true, "the same person asking twice (even typing the phone differently) isn't added twice");
   assert.equal(embedOf(st).length, 1, "and staff aren't pinged twice");
@@ -76,7 +76,7 @@ test("following a series and requesting a comic", async () => {
   assert.equal(embedOf(st)[0].title, "Pull list: follow a series");
   const q = await want(env, { kind: "request", productId: undefined, text: "Absolute Wonder Woman #1, any cover" });
   assert.equal(q.status, 200);
-  assert.match(embedOf(st)[1].description, /Absolute Wonder Woman/);
+  assert.match(embedOf(st)[1].fields[0].value, /Absolute Wonder Woman/);
 });
 
 test("bad requests are refused clearly, and people can't flood the list", async () => {
