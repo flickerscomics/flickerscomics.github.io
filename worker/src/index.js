@@ -140,7 +140,7 @@ export function cleanProduct(raw, i) {
   p.cat = raw.cat;
   p.title = str(raw.title, 120);
   if (!p.title) throw bad(400, `${p.id}: title is required.`);
-  for (const [k, max] of [["num", 20], ["vol", 20], ["subtitle", 120], ["variant", 80], ["collects", 120], ["grade", 20], ["publisher", 80]]) {
+  for (const [k, max] of [["num", 20], ["vol", 20], ["subtitle", 120], ["variant", 80], ["collects", 2000], ["grade", 20], ["publisher", 80]]) {
     const v = str(raw[k], max); if (v) p[k] = v;
   }
   if (raw.pages !== undefined && raw.pages !== "" && raw.pages !== null) {

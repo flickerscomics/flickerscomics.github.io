@@ -75,3 +75,10 @@ test("bad requests are refused and change nothing", async () => {
   assert.equal((await add(env, [{ id: "a", qty: 1 }])).status, 401, "signed-in staff only");
   assert.equal(st.commits.length, 0);
 });
+
+import { cleanProduct } from "../worker/src/index.js";
+test("an omnibus can list a long run of contents without being cut short", () => {
+  const long = Array.from({ length: 40 }, (_, i) => `Batman: Story Number ${i + 1}`).join(", "); // well over the old 120 characters
+  const p = cleanProduct({ id: "omni", cat: "omnibus", title: "Omnibus", price: 100, stock: 1, collects: long }, 0);
+  assert.equal(p.collects, long);
+});

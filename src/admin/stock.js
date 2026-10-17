@@ -374,7 +374,7 @@ function editorHTML() {
         </div>
         <div class="two">
           <div class="field" data-for="tpb omnibus"><label for="ed-subtitle">Subtitle</label><input id="ed-subtitle" autocomplete="off" placeholder="e.g. Omnibus Vol. 1"></div>
-          <div class="field" data-for="tpb omnibus"><label for="ed-collects">Collects</label><input id="ed-collects" autocomplete="off" placeholder="Collects #1–6"></div>
+          <div class="field" data-for="tpb omnibus"><label for="ed-collects">Collects</label><textarea id="ed-collects" rows="3" maxlength="2000" autocomplete="off" placeholder="Collects #1–6"></textarea></div>
           <div class="field" data-for="issues funko"><label for="ed-variant" id="ed-variant-label">Variant</label><input id="ed-variant" autocomplete="off" placeholder="e.g. Variant cover"></div>
         </div>
         <div class="two">
