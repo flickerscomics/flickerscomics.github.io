@@ -1,5 +1,5 @@
 /* Shared bits for the browser checks in this folder. */
-import { spawn } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -11,6 +11,25 @@ export const axePath = path.join(ROOT, "node_modules", "axe-core", "axe.min.js")
 /* where screenshots and logs go */
 export const OUT = path.join(os.tmpdir(), "flickers-qa");
 fs.mkdirSync(OUT, { recursive: true });
+
+/* Tidying up. A browser that's still running when a check ends (it crashed, was stopped, or never reached browser.close()) would otherwise stay open for good,
+   with its temporary profile folder. Every profile folder that appeared while this script ran is ours: when the script exits, stop whatever is still using one and delete it. */
+const PROFILE = /^(puppeteer_dev_chrome_profile-|qa-browser-)/;
+const profileDirs = () => { try { return fs.readdirSync(os.tmpdir()).filter(n => PROFILE.test(n)); } catch (e) { return []; } };
+const before = new Set(profileDirs());
+let tidied = false;
+function tidy() {
+  if (tidied) return; tidied = true;
+  const mine = profileDirs().filter(n => !before.has(n)).map(n => path.join(os.tmpdir(), n));
+  if (!mine.length) return;
+  try {
+    if (process.platform === "win32") spawnSync("powershell", ["-NoProfile", "-Command", "$d = $args; Get-CimInstance Win32_Process | Where-Object { $c = $_.CommandLine; $c -and ($d | Where-Object { $c.Contains($_) }) } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }", ...mine], { stdio: "ignore", timeout: 20000 });
+    else for (const d of mine) spawnSync("pkill", ["-f", d], { stdio: "ignore" });
+  } catch (e) { /* best effort */ }
+  for (const d of mine) { try { fs.rmSync(d, { recursive: true, force: true, maxRetries: 3 }); } catch (e) { /* still in use */ } }
+}
+process.on("exit", tidy);
+for (const sig of ["SIGINT", "SIGTERM"]) process.on(sig, () => process.exit(130));
 
 /* QA_BROWSER overrides; otherwise the first Edge or Chrome found in the usual places. */
 const CANDIDATES = [
