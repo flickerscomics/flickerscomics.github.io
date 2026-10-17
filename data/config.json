@@ -1,7 +1,7 @@
 {
   "postage": 1000,
-  "openHour": 20,
-  "closeHour": 22,
+  "openHour": 21,
+  "closeHour": 23,
   "timeZone": "Europe/London",
   "collectDaysAhead": 14,
   "testMode": false,
