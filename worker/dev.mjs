@@ -28,7 +28,7 @@ kv.set("user:owner", JSON.stringify({ username: "owner", role: "owner", ...(awai
 
 /* pretend GitHub */
 let products = fs.readFileSync(process.env.PRODUCTS_FILE || path.join(root, "data/products.json"), "utf8"); // PRODUCTS_FILE: used by the QA suite
-let featured = fs.readFileSync(path.join(root, "data/featured.json"), "utf8");
+let featured = fs.readFileSync(process.env.FEATURED_FILE || path.join(root, "data/featured.json"), "utf8"); // FEATURED_FILE: used by the QA suite
 let n = 0, discordN = 1000;
 const blobs = {};
 globalThis.fetch = async (url, opts = {}) => {

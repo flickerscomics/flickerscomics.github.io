@@ -15,6 +15,9 @@ import { ROOT, OUT } from "./lib.mjs";
 const here = path.dirname(fileURLToPath(import.meta.url));
 const DEV = { ORDERS_LIVE: "1", ORDER_API: "http://localhost:8787/orders", ADMIN_API: "http://localhost:8787" };
 const SOLD_OUT = "the-deadman-5"; // the wanted-list check needs this one sold out
+// The checks build from a fixed set of comics (qa/fixture), so they don't break when the shop's stock changes. QA_LIVE_DATA=1 uses the shop's real stock instead.
+const FIXTURE = process.env.QA_LIVE_DATA ? "" : path.join(ROOT, "qa", "fixture");
+const PRODUCTS_SRC = FIXTURE ? path.join(FIXTURE, "products.json") : path.join(ROOT, "data/products.json");
 const PLAN = [
   { name: "the site as deployed", env: {}, checks: ["func", "resilience"] },
   { name: "the site with the pretend staff service", env: DEV, checks: ["flow", "admin", "filters", "publisher", "convenience", "wish", "sharecart", "covers", "paging", "tabs", "fonts", "deal", "sales", "series", "staffdesk", "receipt", "storeaxe", "labels", "adminaxe", "dlgaxe", "audit2"] },
@@ -28,10 +31,10 @@ const node = (args, env = {}, opts = {}) => spawn(process.execPath, args, { cwd:
 async function waitFor(url) { for (let i = 0; i < 50; i++) { if (await up(url)) return; await sleep(200); } throw new Error("Nothing answered at " + url); }
 
 function build(env, soldOut) {
-  const extra = {};
+  const extra = FIXTURE ? { QA_FIXTURE: FIXTURE } : {};
   if (soldOut) {
     const file = path.join(OUT, "products-sold-out.json");
-    const lines = fs.readFileSync(path.join(ROOT, "data/products.json"), "utf8").split("\n").map(l => (l.includes(`"${SOLD_OUT}"`) ? l.replace(/"stock":\d+/, '"stock":0') : l));
+    const lines = fs.readFileSync(PRODUCTS_SRC, "utf8").split("\n").map(l => (l.includes(`"${SOLD_OUT}"`) ? l.replace(/"stock":\d+/, '"stock":0') : l));
     fs.writeFileSync(file, lines.join("\n"));
     extra.PRODUCTS_FILE = file;
   }
@@ -59,7 +62,7 @@ try {
     console.log(`\n${step.name}`);
     build(step.env, step.soldOut);
     for (const name of checks) {
-      const api = node(["worker/dev.mjs"], step.soldOut ? { PRODUCTS_FILE: path.join(OUT, "products-sold-out.json") } : {}, { stdio: ["ignore", fs.openSync(path.join(OUT, "dev.log"), "w"), "inherit"] });
+      const api = node(["worker/dev.mjs"], { ...(step.soldOut ? { PRODUCTS_FILE: path.join(OUT, "products-sold-out.json") } : FIXTURE ? { PRODUCTS_FILE: PRODUCTS_SRC } : {}), ...(FIXTURE ? { FEATURED_FILE: path.join(FIXTURE, "featured.json") } : {}) }, { stdio: ["ignore", fs.openSync(path.join(OUT, "dev.log"), "w"), "inherit"] });
       let out = "", code = 1;
       try {
         await waitFor("http://localhost:8787/");

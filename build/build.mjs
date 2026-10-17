@@ -19,8 +19,12 @@ const cp = (from, to) => { const f = path.join(DIST, to); fs.mkdirSync(path.dirn
 
 /* ---------- data ---------- */
 const cfg = JSON.parse(rd("data/config.json"));
-const products = JSON.parse(process.env.PRODUCTS_FILE ? fs.readFileSync(process.env.PRODUCTS_FILE, "utf8") : rd("data/products.json")); // PRODUCTS_FILE: lets the QA suite build with a different stock list
-const featuredRaw = JSON.parse(rd("data/featured.json"));
+// QA_FIXTURE: a folder with products.json, featured.json and covers/, so the browser checks build from a fixed set of comics (qa/fixture).
+// PRODUCTS_FILE: a different stock list on its own (the sold-out run).
+const FIXTURE = process.env.QA_FIXTURE ? path.resolve(process.env.QA_FIXTURE) : "";
+const imageFile = img => (FIXTURE ? path.join(FIXTURE, "covers", path.basename(img)) : path.join(ROOT, img));
+const products = JSON.parse(process.env.PRODUCTS_FILE ? fs.readFileSync(process.env.PRODUCTS_FILE, "utf8") : FIXTURE ? fs.readFileSync(path.join(FIXTURE, "products.json"), "utf8") : rd("data/products.json"));
+const featuredRaw = JSON.parse(FIXTURE ? fs.readFileSync(path.join(FIXTURE, "featured.json"), "utf8") : rd("data/featured.json"));
 if (process.env.ORDERS_LIVE) cfg.testMode = false; // local testing of the live order path
 if (process.env.ORDER_API) cfg.orderApi = process.env.ORDER_API;
 if (process.env.ADMIN_API) cfg.adminApi = process.env.ADMIN_API; // lets you point a local build at a local or test staff API
@@ -38,7 +42,7 @@ function validate() {
     if (!p.title) errs.push(`${where}: missing title`);
     if (!Number.isFinite(p.price) || p.price < 0) errs.push(`${where}: bad price`);
     if (!Number.isInteger(p.stock) || p.stock < 0) errs.push(`${where}: bad stock`);
-    if (p.image && !fs.existsSync(path.join(ROOT, p.image))) errs.push(`${where}: image not found: ${p.image}`);
+    if (p.image && !fs.existsSync(imageFile(p.image))) errs.push(`${where}: image not found: ${p.image}`);
   });
   featuredRaw.forEach(id => { if (!ids.has(id)) errs.push(`featured.json: unknown id "${id}"`); });
   if (!cfg.siteUrl) errs.push("config.json: siteUrl is required");
@@ -99,7 +103,7 @@ const CACHE = path.join(ROOT, ".cache", "covers");
 fs.mkdirSync(CACHE, { recursive: true });
 const images = [...new Set(products.map(p => p.image).filter(Boolean))], inUse = new Set();
 await Promise.all(images.map(async img => {
-  const name = coverName(img), bytes = fs.readFileSync(path.join(ROOT, img));
+  const name = coverName(img), bytes = fs.readFileSync(imageFile(img));
   const digest = crypto.createHash("sha1").update(bytes).update(ENCODING).digest("hex").slice(0, 16);
   for (const [w, webpQ, avifQ] of SIZES) {
     for (const [ext, quality] of [["webp", webpQ], ["avif", avifQ]]) {
@@ -122,7 +126,7 @@ for (const old of fs.readdirSync(CACHE)) if (!inUse.has(old)) fs.rmSync(path.joi
 {
   const logo = await sharp(path.join(ROOT, "assets/flickers-logo.png")).resize({ width: 640 }).toBuffer();
   const fan = featuredRaw.map(id => products.find(p => p.id === id)).filter(p => p && p.image).slice(0, 3);
-  const covers = await Promise.all(fan.map(p => sharp(path.join(ROOT, p.image)).resize({ width: 220, height: 330, fit: "cover" }).toBuffer()));
+  const covers = await Promise.all(fan.map(p => sharp(imageFile(p.image)).resize({ width: 220, height: 330, fit: "cover" }).toBuffer()));
   const layers = [{ input: logo, left: 64, top: 240 }];
   covers.forEach((b, i) => layers.push({ input: b, left: 760 + i * 130, top: 150 + (i === 1 ? -30 : 20) }));
   const base = Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630"><rect width="1200" height="630" fill="#0E1211"/><rect y="0" width="1200" height="24" fill="#FFE912"/><rect y="606" width="1200" height="24" fill="#FFE912"/></svg>`);

@@ -15,6 +15,9 @@ node run.mjs wants tabs   # just those
 prints a verdict per check. When something fails it says where the full log is (in a `flickers-qa` folder in your temp directory,
 along with screenshots). Set `QA_BROWSER` if no browser is found. Nothing here talks to the live shop, Discord or GitHub.
 
+The checks build from a fixed set of 40 comics in `qa/fixture/` (a snapshot of real ones, with small covers), so they don't break when the shop's stock changes.
+`QA_LIVE_DATA=1 node run.mjs` uses the shop's real stock instead, and `node make-fixture.mjs` rebuilds the fixture (only needed if it should change).
+
 Each `*.mjs` file also runs on its own once the site is built and served (`npm run build`, `npm run serve`, and `npm run dev:api`
 for the staff checks), which is handy while changing one thing.
 
