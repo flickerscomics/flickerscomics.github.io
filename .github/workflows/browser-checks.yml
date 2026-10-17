@@ -2,7 +2,8 @@ name: Browser checks
 
 # Drives a real browser through the shop and the staff area (qa/): ordering, search, filters, the wanted list, the staff tabs, accessibility.
 # It runs after every push to main but is separate from the deploy, so a slow or flaky run never holds the site back.
-# If it fails, open the run and download the "browser-check-logs" file (logs and screenshots). "Run workflow" starts it by hand.
+# If it fails, the run page shows a short summary of what went wrong, and the full logs and screenshots are in the "browser-check-logs" download.
+# "Run workflow" starts it by hand.
 on:
   push:
     branches: [main]
@@ -33,12 +34,20 @@ jobs:
           path: .cache
           key: covers-${{ hashFiles('assets/covers/**', 'build/build.mjs') }}
           restore-keys: covers-
-      - run: node qa/run.mjs
+      - name: Browser version
+        run: google-chrome --version
+      - name: Run the browser checks
         env:
           QA_BROWSER: /usr/bin/google-chrome
+        run: node qa/run.mjs 2>&1 | tee run.log; exit "${PIPESTATUS[0]}"
+      - name: Summarise what failed
+        if: failure()
+        run: node qa/ci-report.mjs
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
           name: browser-check-logs
-          path: /tmp/flickers-qa
+          path: |
+            run.log
+            /tmp/flickers-qa
           if-no-files-found: ignore
