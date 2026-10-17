@@ -40,6 +40,15 @@ check("the sort menu has Newest arrivals", opts.includes("newest"), opts.join(",
 await d.select("#sort", "newest"); await sleep(300);
 check("sorting by newest works and goes in the address", d.url().includes("sort=newest") && (await d.$$eval(".card:not([hidden])", c => c.length)) === shop.products.length);
 
+/* ---- A to Z puts #2 before #10 (natural order, not letter by letter) ---- */
+await d.select("#sort", "title"); await sleep(300);
+const order = await d.$$eval(".card:not([hidden]) .title", t => t.map(x => x.textContent.trim()));
+const withNo = order.map(t => { const m = /^(.*?)\s*#(\d+)\s*$/.exec(t); return m ? { base: m[1], n: Number(m[2]) } : null; }).filter(Boolean);
+const grouped = new Map(); withNo.forEach(x => (grouped.get(x.base) || grouped.set(x.base, []).get(x.base)).push(x.n));
+const bad = [...grouped].filter(([, ns]) => ns.some((n, i) => i && n < ns[i - 1])).map(([b]) => b);
+check("A to Z lists numbered issues in natural order (…8, 9, 10, 11…)", grouped.size > 0 && !bad.length, bad.length ? "out of order: " + bad.join(", ") : [...grouped.values()].map(a => a.slice(0, 12).join(" ")).join(" / ").slice(0, 120));
+await d.select("#sort", "featured"); await sleep(200);
+
 /* ---- comic page: more like this ---- */
 await d.goto(BASE + `/comic/${A.id}/`, { waitUntil: "networkidle0" });
 const more = await d.$$eval(".more .card", c => c.length);

@@ -158,7 +158,7 @@ function applyFilters() {
     newest: (a, b) => String(b.p.added || "").localeCompare(String(a.p.added || "")) || ((b.p.stock > 0) - (a.p.stock > 0)) || a.i - b.i, // comics with no date (the older ones) keep the shelf order below the dated ones
     "price-asc": (a, b) => a.p.price - b.p.price || a.i - b.i,
     "price-desc": (a, b) => b.p.price - a.p.price || a.i - b.i,
-    title: (a, b) => index.get(a.p.id).title.localeCompare(index.get(b.p.id).title) || a.i - b.i
+    title: (a, b) => index.get(a.p.id).title.localeCompare(index.get(b.p.id).title, "en", { numeric: true, sensitivity: "base" }) || a.i - b.i // natural order: #2 comes before #10
   };
   known.sort(sorters[filters.sort] || sorters.featured);
   let shown = 0;

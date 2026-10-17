@@ -264,5 +264,5 @@ export function reorderRows(products, data) {
     .map(p => ({ p, stock: p.stock, waiting: data.waiting[p.id] || 0, sold: data.sold[p.id] || 0 }))
     .filter(r => r.stock <= REORDER_LOW || r.waiting > r.stock)
     .map(r => ({ ...r, suggested: suggestReorder(r.stock, r.waiting, r.sold) }))
-    .sort((x, y) => y.waiting - x.waiting || y.sold - x.sold || x.stock - y.stock || fullTitle(x.p).localeCompare(fullTitle(y.p)));
+    .sort((x, y) => y.waiting - x.waiting || y.sold - x.sold || x.stock - y.stock || fullTitle(x.p).localeCompare(fullTitle(y.p), "en", { numeric: true, sensitivity: "base" }));
 }

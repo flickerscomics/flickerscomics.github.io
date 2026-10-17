@@ -137,13 +137,13 @@ const seriesList = [];
 const slugsTaken = new Set();
 for (const [key, items] of seriesMap) {
   if (items.length < 2) continue;
-  items.sort((a, b) => issueNo(a) - issueNo(b) || fullTitle(a).localeCompare(fullTitle(b)));
+  items.sort((a, b) => issueNo(a) - issueNo(b) || fullTitle(a).localeCompare(fullTitle(b), "en", { numeric: true, sensitivity: "base" }));
   let sl = slug(items[0].title + (items[0].vol ? " " + items[0].vol : "")), n = 2; const base = sl;
   while (slugsTaken.has(sl)) sl = `${base}-${n++}`;
   slugsTaken.add(sl);
   seriesList.push({ key, slug: sl, title: items[0].title + (items[0].vol ? " " + items[0].vol : ""), items });
 }
-seriesList.sort((a, b) => b.items.length - a.items.length || a.title.localeCompare(b.title));
+seriesList.sort((a, b) => b.items.length - a.items.length || a.title.localeCompare(b.title, "en", { numeric: true, sensitivity: "base" }));
 const seriesOf = {};
 seriesList.forEach(sr => sr.items.forEach(p => { seriesOf[p.id] = sr; }));
 
