@@ -87,7 +87,7 @@ To switch it off, set `FLEECA_PAYMENTS = "false"` and deploy.
 ## Day to day
 
 - **Publish changes** in the staff area makes one commit to `main`. The site rebuilds and goes live in a minute or two.
-- If you ever change stock by hand in GitHub, edit `data/products.json` (see the README). A mistake there stops the deploy and the old site stays up.
+- If you ever change stock by hand in GitHub, edit `data/products.json` (the format is in `docs/DEVELOPERS.md`). A mistake there stops the deploy and the old site stays up.
 - Passwords need 10+ characters. Changing or resetting a password signs that person out everywhere.
 - Too many wrong passwords from one place locks sign-ins for 15 minutes.
 
