@@ -9,7 +9,7 @@ It's a static site hosted free on GitHub Pages. Every comic has its own page, an
 | --- | --- |
 | `data/` | The shop's content: `products.json` (stock), `featured.json` ("new this week"), `config.json` (postage, hours, categories, addresses). |
 | `build/` | A small script that turns `data/` and `assets/` into the finished site in `dist/`: one page per comic, resized WebP covers, minified CSS and JavaScript, self-hosted fonts, sitemap. |
-| `src/` | The site's CSS and JavaScript (`js/site.js` is the storefront; `admin/` is the staff area, one file per tab; `shared.mjs` is used by both and by the build). |
+| `src/` | The site's CSS and JavaScript (`js/` is the storefront, one file per job: `site.js` starts it and handles clicks, `core.js` holds the shared state, then `cart`, `shelves` (search and filters), `buy`, `checkout`, `saved`, `wants`, `track` and `hours`; `admin/` is the staff area, one file per tab; `shared.mjs` is used by both and by the build). |
 | `tests/` | Automated checks: the build, valid HTML, the staff service, the order pipeline and the wanted list. The deploy stops if any fail. |
 | `qa/` | Browser checks (a real Edge or Chrome) for the shop and staff area. Run by hand, not part of the deploy. |
 | `worker/` | The staff service (Cloudflare Worker): logins, publishing, and the order log with Discord. See `docs/SETUP.md` and `docs/DISCORD.md`. |
