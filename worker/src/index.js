@@ -148,6 +148,7 @@ export function cleanProduct(raw, i) {
     if (!Number.isInteger(pages) || pages < 0 || pages > 10000) throw bad(400, `${p.id}: pages must be a whole number.`);
     if (pages) p.pages = pages;
   }
+  if (/^\d{4}-\d{2}-\d{2}$/.test(String(raw.added || ""))) p.added = raw.added; // the day it arrived (set when it's first published), for "Newest arrivals"
   const price = Number(raw.price), stock = Number(raw.stock);
   if (!Number.isFinite(price) || price < 0 || price > 10000000) throw bad(400, `${p.id}: price must be 0 or more.`);
   if (!Number.isInteger(stock) || stock < 0 || stock > 100000) throw bad(400, `${p.id}: stock must be a whole number.`);
@@ -190,6 +191,8 @@ async function publish(env, user, body) {
   }
   const ids = new Set();
   for (const p of products) { if (ids.has(p.id)) throw bad(400, `Two items share the id "${p.id}".`); ids.add(p.id); }
+  const known = new Set(current.products.map(p => p.id)), day = new Date().toISOString().slice(0, 10);
+  for (const p of products) if (!known.has(p.id) && !p.added) p.added = day;
   const featured = (Array.isArray(body.featured) ? body.featured : []).filter(id => ids.has(id)).slice(0, 3);
   const commit = await gh(env, `/git/commits/${current.head}`);
 

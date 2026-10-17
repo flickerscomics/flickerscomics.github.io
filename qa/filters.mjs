@@ -13,8 +13,10 @@ const shown = () => page.$$eval(".card:not([hidden])", c => c.length);
 const results_ = () => page.$eval("#results", e => e.textContent);
 const type = async s => { await page.$eval("#q", (el, v) => { el.value = v; el.dispatchEvent(new Event("input", { bubbles: true })); }, s); await sleep(150); };
 
-await type("bat 14");
-check("'bat 14' finds Batman #14", (await shown()) === 1 && (await page.$eval(".card:not([hidden]) .title", e => e.textContent)).includes("Batman #14"));
+const numbered = (await (await fetch(BASE + "/data/shop.json")).json()).products.find(p => p.num && /\d/.test(p.num) && /^[a-z]{3}/i.test(p.title));
+const nq = numbered.title.slice(0, 3).toLowerCase() + " " + String(numbered.num).replace(/\D/g, "");
+await type(nq);
+check(`'${nq}' finds ${numbered.title} ${numbered.num}`, (await page.$$eval(".card:not([hidden])", c => c.map(x => x.dataset.id))).includes(numbered.id));
 await type("batmn");
 check("a typo finds Batman and says they're close matches", (await shown()) >= 1 && (await results_()).includes("close matches"), await results_());
 await type("zzzzqq");
@@ -31,7 +33,8 @@ const shownIds = () => page.$$eval(".card:not([hidden])", c => c.map(x => x.data
 check("In stock hides sold out comics", inStock <= total && (await shownIds()).every(id => P[id].stock > 0));
 await page.$eval('[data-chip="last"]', b => b.click()); await sleep(100);
 const lastN = await shown();
-check("Last copies shows only 1 or 2 left", lastN > 0 && lastN < total && (await shownIds()).every(id => P[id].stock >= 1 && P[id].stock <= 2), `${lastN}`);
+const anyLast = SHOP.products.some(p => p.stock >= 1 && p.stock <= 2); // nothing to show if no comic is down to its last copies
+check("Last copies shows only 1 or 2 left", (!anyLast ? lastN === 0 : lastN > 0 && lastN < total) && (await shownIds()).every(id => P[id].stock >= 1 && P[id].stock <= 2), `${lastN}`);
 check("clear filters button appears", !(await page.$eval("#clearFilters", e => e.hidden)));
 check("address bar records the filters", page.url().includes("instock=1") && page.url().includes("last=1"), page.url());
 await page.$eval("#clearFilters", b => b.click()); await sleep(100);

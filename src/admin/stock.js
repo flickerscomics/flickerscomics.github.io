@@ -11,7 +11,7 @@ const CATEGORIES = [
   { key: "funko", label: "Funko Pops", one: "Funko Pop" }
 ];
 const GRADE_OPTIONS = ["NM+ 9.6", "NM 9.4", "NM− 9.2", "VF 8.0", "FN 6.0", "VG 4.0", "GD 2.0"];
-const FIELD_ORDER = ["id", "cat", "title", "num", "vol", "subtitle", "variant", "collects", "pages", "grade", "publisher", "price", "stock", "blurb", "tagline", "badges", "staff", "image"];
+const FIELD_ORDER = ["id", "cat", "title", "num", "vol", "subtitle", "variant", "collects", "pages", "grade", "publisher", "price", "stock", "blurb", "tagline", "badges", "staff", "image", "added"];
 
 /* ---------- product helpers ---------- */
 function cleanProduct(p) {

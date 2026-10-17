@@ -52,7 +52,7 @@ Customers can use **Track order** in the menu with their order number and phone 
 ```
 
 - Required: `id` (lowercase letters, numbers, dashes; becomes the page address), `cat`, `title`, `price`, `stock`, `blurb`.
-- Optional: `num`, `vol`, `subtitle`, `variant`, `collects`, `pages`, `grade`, `publisher`, `tagline`, `badges` (`new`, `variant`, `exclusive`), `staff` (a staff pick note), `image`.
+- Optional: `num`, `vol`, `subtitle`, `variant`, `collects`, `pages`, `grade`, `publisher`, `tagline`, `badges` (`new`, `variant`, `exclusive`), `staff` (a staff pick note), `image`, `added` (the day it was first published, set automatically; it drives "Newest arrivals").
 - `cat` is one of `issues`, `graphic`, `tpb`, `omnibus`, `manga`, `funko`.
 - Without `image`, the comic gets a plain typographic cover. Add the photo to `assets/covers/` and set `image` to use it.
 - `data/featured.json` lists up to three ids shown at the top of the home page.

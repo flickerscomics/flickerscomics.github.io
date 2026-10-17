@@ -171,6 +171,7 @@ function dialogs(cfg) {
                 <p class="error" id="e-phone" hidden></p>
               </div>
             </div>
+            <label class="remember"><input type="checkbox" id="f-remember" checked> Remember my name and phone on this device</label>
           </fieldset>
           <fieldset>
             <legend>How do you want it?</legend>
@@ -262,6 +263,7 @@ function dialogs(cfg) {
 </dialog>
 
 <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+<div class="cart-bar" id="cartBar" hidden><button type="button" class="btn btn-yellow btn-block" id="cartBarBtn"><span id="cartBarText">View cart</span><span aria-hidden="true">→</span></button></div>
 <button type="button" class="to-top" id="toTop" aria-label="Back to the top" hidden><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><path d="M12 19V5M5 12l7-7 7 7" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></button>`;
 }
 
@@ -361,14 +363,16 @@ ${header(root, { series: ctx.hasSeries })}
           <p class="section-sub">Tap any cover for details.</p>
         </div>
         <div class="tools">
-          <label class="search">
-            <span class="sr-only">Search the shelves</span>
+          <div class="search">
+            <label class="sr-only" for="q">Search the shelves</label>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
-            <input type="search" id="q" placeholder="Search titles, issues, publishers" autocomplete="off" aria-keyshortcuts="/">
-          </label>
+            <input type="search" id="q" placeholder="Search titles, issues, publishers" autocomplete="off" aria-keyshortcuts="/" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="qSuggest">
+            <ul class="suggest" id="qSuggest" role="listbox" aria-label="Matching comics" hidden></ul>
+          </div>
           <label class="sort"><span>Sort</span>
             <select id="sort">
               <option value="featured">Featured</option>
+              <option value="newest">Newest arrivals</option>
               <option value="price-asc">Price: low to high</option>
               <option value="price-desc">Price: high to low</option>
               <option value="title">Title A–Z</option>
@@ -483,7 +487,7 @@ ${header(root, { series: ctx.hasSeries })}
   </div>
 </main>
 ${related.length ? `<section class="more" aria-labelledby="moreTitle"><div class="wrap">
-  <h2 class="section-title" id="moreTitle">More from ${esc(p.publisher || "the shelves")}</h2>
+  <h2 class="section-title" id="moreTitle">${ctx.relatedHeading ? esc(ctx.relatedHeading(p)) : `More from ${esc(p.publisher || "the shelves")}`}</h2>
   <div class="grid">${related.map((r, i) => cardHTML(r, ctx, i)).join("\n")}</div>
 </div></section>` : ""}
 ${footer(root, cfg)}

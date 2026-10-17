@@ -137,6 +137,9 @@ test("publish commits products, featured and new photos in one commit", async ()
   assert.deepEqual(paths, ["assets/covers/new-one-abc.jpg", "data/featured.json", "data/products.json"]);
   const productsBlob = Object.values(gh.blobs).find(b => b.content.includes("new-one"));
   assert.ok(!productsBlob.content.includes("hacker"), "unknown fields are dropped");
+  const out = JSON.parse(productsBlob.content), day = new Date().toISOString().slice(0, 10);
+  assert.equal(out.find(p => p.id === "new-one").added, day, "a new comic is dated the day it's published, for Newest arrivals");
+  assert.equal(out.find(p => p.id === "batman-1").added, undefined, "comics that were already on the shelf aren't given a date");
   assert.deepEqual(JSON.parse(Object.values(gh.blobs).find(b => b.content.includes("batman-1") && !b.content.includes("title")).content), ["batman-1"]);
 });
 test("publish refuses a stale version, bad data and non-JPEG uploads", async () => {

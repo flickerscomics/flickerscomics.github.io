@@ -745,3 +745,20 @@ select option,select optgroup{background-color:var(--paper-raised);color:var(--i
   .request-card .btn-xl{width:100%}
 }
 @media (forced-colors:active){.request-card{border-color:CanvasText}}
+
+/* search suggestions, "remember me", and the phone's pinned cart bar */
+.suggest{position:absolute;left:0;right:0;top:calc(100% + 6px);z-index:30;max-height:300px;margin:0;padding:6px;overflow:auto;list-style:none;border:2px solid var(--ink);border-radius:12px;background:var(--paper-raised);color:var(--ink);box-shadow:var(--shadow)}
+.suggest[hidden]{display:none}
+.suggest li{display:flex;justify-content:space-between;gap:12px;padding:10px 12px;border-radius:8px;cursor:pointer;font-weight:700;line-height:1.25}
+.suggest li:hover,.suggest li[aria-selected="true"]{background:var(--yellow);color:var(--on-yellow)}
+.sug-meta{flex:none;font-weight:800;opacity:.75}
+.remember{display:flex;align-items:center;gap:10px;margin-top:12px;font-size:15px;font-weight:600;cursor:pointer}
+.remember input{width:20px;height:20px;accent-color:var(--yellow)}
+.cart-bar{display:none}
+@media (max-width:640px){
+  .cart-bar:not([hidden]){display:block;position:fixed;left:0;right:0;bottom:0;z-index:45;padding:10px max(14px,env(safe-area-inset-right)) calc(10px + env(safe-area-inset-bottom,0px)) max(14px,env(safe-area-inset-left));background:linear-gradient(180deg,transparent,var(--paper) 38%)}
+  .cart-bar .btn{justify-content:space-between;width:100%;padding:14px 18px;font-size:16px}
+  body.has-cartbar{padding-bottom:84px}
+  body.has-cartbar .to-top{bottom:calc(84px + env(safe-area-inset-bottom,0px))}
+  body.has-cartbar .toast{bottom:calc(92px + env(safe-area-inset-bottom,0px))}
+}

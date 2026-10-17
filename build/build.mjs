@@ -166,7 +166,10 @@ wr("index.html", shell({
 for (const p of products) {
   const root = "../../";
   const ctx = ctxFor(root);
-  const related = products.filter(r => r.id !== p.id && r.stock > 0 && r.publisher === p.publisher).slice(0, 4);
+  // the same series first, then the same publisher on the same shelf, then the same publisher, then the same shelf; in stock only
+  const rank = r => (seriesOf[r.id] && seriesOf[r.id] === seriesOf[p.id] ? 8 : 0) + (r.publisher && r.publisher === p.publisher ? 3 : 0) + (r.cat === p.cat ? 2 : 0) + (r.badges && r.badges.includes("new") ? 1 : 0);
+  const related = products.filter(r => r.id !== p.id && r.stock > 0 && rank(r) >= 2).sort((a, b) => rank(b) - rank(a)).slice(0, 4);
+  ctx.relatedHeading = () => (related.length && related.every(r => seriesOf[r.id] && seriesOf[r.id] === seriesOf[p.id]) ? `More of ${seriesOf[p.id].title}` : "More like this");
   const t = fullTitle(p);
   const img = p.image ? `${siteUrl}/img/covers/${coverName(p.image)}-600.webp` : ogDefault;
   const desc = String(p.blurb || DEFAULT_DESC).replace(/\s+/g, " ").slice(0, 200);

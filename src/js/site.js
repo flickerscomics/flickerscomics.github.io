@@ -116,7 +116,7 @@ function setQty(id, n) {
 /* ===================== shelves ===================== */
 const grid = $("grid");
 const filters = { group: "all", q: "", sort: "featured", instock: false, novar: false, last: false, max: 0, pub: "" };
-const SORTS = ["featured", "price-asc", "price-desc", "title"];
+const SORTS = ["featured", "newest", "price-asc", "price-desc", "title"];
 // The shelf (publisher or category tab), search and sort live in the address, e.g. ?shelf=DC+Comics&sort=price-asc,
 // so a filtered shelf can be shared and the Back button keeps working. Other parameters are left alone.
 function readUrlState() {
@@ -155,6 +155,7 @@ function applyFilters() {
   const known = rows.filter(r => r.p);
   const sorters = {
     featured: (a, b) => ((b.p.stock > 0) - (a.p.stock > 0)) || a.i - b.i,
+    newest: (a, b) => String(b.p.added || "").localeCompare(String(a.p.added || "")) || ((b.p.stock > 0) - (a.p.stock > 0)) || a.i - b.i, // comics with no date (the older ones) keep the shelf order below the dated ones
     "price-asc": (a, b) => a.p.price - b.p.price || a.i - b.i,
     "price-desc": (a, b) => b.p.price - a.p.price || a.i - b.i,
     title: (a, b) => index.get(a.p.id).title.localeCompare(index.get(b.p.id).title) || a.i - b.i
@@ -289,6 +290,9 @@ function renderCartUI() {
   $("cartTotal").textContent = money(sub);
   $("cartBtn").setAttribute("aria-label", `Cart: ${n} ${n === 1 ? "item" : "items"}, ${money(sub)}`);
   $("checkoutBtn").disabled = n === 0;
+  $("cartBar").hidden = n === 0; // the phone's pinned "view cart" bar (CSS shows it on small screens only)
+  $("cartBarText").textContent = `View cart · ${plural(n, "item")} · ${money(sub)}`;
+  document.body.classList.toggle("has-cartbar", n > 0);
   if (drawer.open) {
     const a = document.activeElement, key = a && ["inc", "dec", "remove"].find(k => a.dataset && a.dataset[k]);
     const id = key ? a.dataset[key] : null;
@@ -382,6 +386,7 @@ function buildOrder() {
     test: CONFIG.testMode
   };
 }
+const ME_KEY = "flickers-customer";
 function openCheckout() {
   if (!cartCount()) return;
   if (drawer.open) drawer.close();
@@ -392,6 +397,9 @@ function openCheckout() {
   $("formError").textContent = "";
   setDateBounds();
   syncMethod();
+  const me = store.get(ME_KEY, null);
+  if (me && !F.name.value && !F.phone.value) { F.name.value = String(me.name || ""); F.phone.value = String(me.phone || ""); }
+  $("f-remember").checked = !store.get(ME_KEY + "-off", false);
   co.showModal();
   co.scrollTop = 0;
   F.name.focus();
@@ -403,6 +411,8 @@ async function placeOrder(ev) {
   showErrors(errs);
   if (Object.keys(errs).length) return;
   const order = buildOrder();
+  if ($("f-remember").checked) { store.set(ME_KEY, { name: order.name, phone: order.phone }); store.set(ME_KEY + "-off", null); } // next time the form is already filled in
+  else { store.set(ME_KEY, null); store.set(ME_KEY + "-off", true); }
   if (CONFIG.testMode || !CONFIG.orderApi) {
     cart = {}; saveCart(); renderCartUI();
     showDone(order);
@@ -459,6 +469,11 @@ function discordPreview(o) {
     </div>
   </section>`;
 }
+/* Plain text of an order, to paste into a message or keep in the notes app. */
+function orderSummary(o) {
+  const when = o.method === "collect" ? `Collect ${fmtDate(o.collectDate)}, ${hoursText(CONFIG)}` : `Post to ${String(o.address || "").replace(/\s*\n\s*/g, ", ")}`;
+  return [`Flickers Comics order ${o.id}`, ...o.items.map(i => `${i.qty} x ${i.title}`), `Total ${money(o.total)}`, when].join("\n");
+}
 function showDone(o) {
   const collect = o.method === "collect";
   $("coFormView").hidden = true;
@@ -468,7 +483,7 @@ function showDone(o) {
     <div class="done-top">
       <p class="eyebrow">${o.test ? "Test order" : o.paid ? "Payment received" : "Order received"}</p>
       <h2 class="done-title" id="doneTitle" tabindex="-1">Thanks, ${esc(firstName(o.name))}. Order received.</h2>
-      <p class="ticket">Order <strong>${esc(o.id)}</strong> <button type="button" class="link-btn" data-copy="${esc(o.id)}">Copy</button></p>
+      <p class="ticket">Order <strong>${esc(o.id)}</strong> <button type="button" class="link-btn" data-copy="${esc(o.id)}">Copy number</button> <button type="button" class="link-btn" data-copy="${esc(orderSummary(o))}">Copy order details</button></p>
       <p class="done-note">${o.test ? "This was a test, so nothing was charged and the shop wasn't notified." : o.paid ? "Your payment went through and the shop has your order." : "The shop has your order."}</p>
     </div>
     <div class="done-grid">
@@ -829,8 +844,43 @@ form.querySelectorAll('input[name="method"]').forEach(r => r.addEventListener("c
 ["name", "phone", "date", "address"].forEach(k => F[k].addEventListener("input", () => {
   if (F[k].getAttribute("aria-invalid") === "true") { F[k].removeAttribute("aria-invalid"); $("e-" + k).hidden = true; }
 }));
+/* Suggestions under the search box: the comics that match what's been typed so far, so a customer can pick one instead of finishing the title. */
+function initSuggest() {
+  const input = $("q"), list = $("qSuggest");
+  if (!input || !list) return;
+  let shown = [], active = -1;
+  const close = () => { list.hidden = true; list.innerHTML = ""; shown = []; active = -1; input.setAttribute("aria-expanded", "false"); input.removeAttribute("aria-activedescendant"); };
+  const mark = i => {
+    active = i;
+    [...list.children].forEach((li, k) => li.setAttribute("aria-selected", String(k === i)));
+    if (i >= 0) { input.setAttribute("aria-activedescendant", "sug-" + i); list.children[i].scrollIntoView({ block: "nearest" }); } else input.removeAttribute("aria-activedescendant");
+  };
+  const pick = i => { const p = shown[i]; if (!p) return; input.value = fullTitle(p); filters.q = input.value; close(); setGroup("all"); };
+  const open = () => {
+    const q = input.value.trim();
+    if (q.length < 2 || !index.size) return close();
+    const found = searchItems(PRODUCTS.map(p => index.get(p.id)), q);
+    if (found.mode !== "exact" && found.mode !== "close") return close();
+    shown = PRODUCTS.filter((p, k) => found.flags[k]).sort((a, b) => (b.stock > 0) - (a.stock > 0)).slice(0, 6);
+    if (!shown.length || (shown.length === 1 && fullTitle(shown[0]).toLowerCase() === q.toLowerCase())) return close(); // they've typed the whole title already
+    list.innerHTML = shown.map((p, i) => `<li role="option" id="sug-${i}" aria-selected="false" data-i="${i}"><span class="sug-title">${esc(fullTitle(p))}</span><span class="sug-meta">${p.stock > 0 ? money(p.price) : "Sold out"}</span></li>`).join("");
+    list.hidden = false; input.setAttribute("aria-expanded", "true"); active = -1;
+  };
+  input.addEventListener("input", open);
+  input.addEventListener("keydown", ev => {
+    if (list.hidden) return;
+    if (ev.key === "ArrowDown") { ev.preventDefault(); mark((active + 1) % shown.length); }
+    else if (ev.key === "ArrowUp") { ev.preventDefault(); mark(active <= 0 ? shown.length - 1 : active - 1); }
+    else if (ev.key === "Enter" && active >= 0) { ev.preventDefault(); pick(active); }
+    else if (ev.key === "Escape") { ev.preventDefault(); close(); }
+  });
+  list.addEventListener("mousedown", ev => { const li = ev.target.closest("li[data-i]"); if (li) { ev.preventDefault(); pick(Number(li.dataset.i)); } }); // before the box loses focus
+  input.addEventListener("blur", () => setTimeout(close, 120));
+}
 if ($("q")) {
+  initSuggest();
   $("q").addEventListener("input", ev => { filters.q = ev.target.value; applyFilters(); });
+  $("cartBarBtn").addEventListener("click", () => $("cartBtn").click());
   $("sort").addEventListener("change", ev => { filters.sort = ev.target.value; applyFilters(); });
   $("clearSearch").addEventListener("click", () => { Object.assign(filters, { q: "", instock: false, novar: false, last: false, max: 0, pub: "" }); $("q").value = ""; if ($("maxPrice")) $("maxPrice").value = "0"; if ($("pubFilter")) $("pubFilter").value = ""; setGroup("all"); $("q").focus(); });
   document.querySelectorAll("[data-chip]").forEach(b => b.addEventListener("click", () => { filters[b.dataset.chip] = !filters[b.dataset.chip]; applyFilters(); }));
