@@ -102,24 +102,35 @@ const SIZES = [[300, 68, 46], [450, 70, 48], [600, 72, 50]]; // width, WebP qual
 const CACHE = path.join(ROOT, ".cache", FIXTURE ? "covers-qa" : "covers"); // the test catalogue has its own, so building it never clears the real covers' pictures
 fs.mkdirSync(CACHE, { recursive: true });
 const images = [...new Set(products.map(p => p.image).filter(Boolean))], inUse = new Set();
-await Promise.all(images.map(async img => {
-  const name = coverName(img), bytes = fs.readFileSync(imageFile(img));
-  const digest = crypto.createHash("sha1").update(bytes).update(ENCODING).digest("hex").slice(0, 16);
+// Two cover files can hold the very same picture, and then they share one cache entry. Encode each distinct picture once: two encodes of the same one would
+// write and rename the same temporary file at the same moment and one of them would fail.
+const pictures = images.map(img => {
+  const bytes = fs.readFileSync(imageFile(img));
+  return { img, name: coverName(img), bytes, digest: crypto.createHash("sha1").update(bytes).update(ENCODING).digest("hex").slice(0, 16) };
+});
+const distinct = new Map(pictures.map(p => [p.digest, p.bytes]));
+await Promise.all([...distinct].map(async ([digest, bytes]) => {
   for (const [w, webpQ, avifQ] of SIZES) {
     for (const [ext, quality] of [["webp", webpQ], ["avif", avifQ]]) {
       const kept = path.join(CACHE, `${digest}-${w}.${ext}`);
-      inUse.add(path.basename(kept));
       if (!fs.existsSync(kept)) {
         const pic = sharp(bytes).rotate().resize({ width: w, withoutEnlargement: false });
         await (ext === "webp" ? pic.webp({ quality, effort: 5 }) : pic.avif({ quality, effort: 4 })).toFile(kept + ".tmp");
         fs.renameSync(kept + ".tmp", kept);
       }
-      const out = path.join(DIST, "img", "covers", `${name}-${w}.${ext}`);
-      fs.mkdirSync(path.dirname(out), { recursive: true });
-      fs.copyFileSync(kept, out);
     }
   }
 }));
+for (const { name, digest } of pictures) {
+  for (const [w] of SIZES) for (const ext of ["webp", "avif"]) {
+    const kept = path.join(CACHE, `${digest}-${w}.${ext}`);
+    inUse.add(path.basename(kept));
+    const out = path.join(DIST, "img", "covers", `${name}-${w}.${ext}`);
+    fs.mkdirSync(path.dirname(out), { recursive: true });
+    fs.copyFileSync(kept, out);
+  }
+}
+
 for (const old of fs.readdirSync(CACHE)) if (!inUse.has(old)) fs.rmSync(path.join(CACHE, old), { force: true }); // pictures that were replaced or removed
 
 /* ---------- social share image ---------- */
