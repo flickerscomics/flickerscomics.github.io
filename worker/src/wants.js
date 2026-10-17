@@ -75,10 +75,10 @@ export async function createWant(env, raw, ip) {
   await env.USERS.put(`wid:${w.id}`, wantKey(w), { expirationTtl: WANT_TTL });
   await env.USERS.put(dk, w.id, { expirationTtl: WANT_TTL });
 
-  const what = { restock: ["Notify when back in stock", w.title, "Wants to be told when this is back."], series: ["Pull list: follow a series", w.series, "Wants to hear when a new issue arrives."], request: ["Comic request", cut(escMd(w.text), 250), "Asked if we can get this in."] }[w.kind];
+  const what = { restock: ["Notify when back in stock", "Comic", w.title, "A customer wants to be told when this is back in stock."], series: ["Pull list: follow a series", "Series", w.series, "A customer wants to hear when a new issue arrives."], request: ["Comic request", "Comic requested", w.text, "A customer is asking if we can get this comic in."] }[w.kind];
   await webhook(env, { payload: { username: "Flickers Orders", allowed_mentions: { parse: [] }, embeds: [{
-    title: what[0], description: `**${escMd(what[1])}**\n${what[2]}`, color: 0x5865F2,
-    fields: [{ name: "Customer", value: cut(escMd(name), 200), inline: true }, { name: "Phone", value: cut(escMd(phone), 100), inline: true }],
+    title: what[0], description: what[3], color: 0x5865F2,
+    fields: [{ name: what[1], value: cut(escMd(what[2]), 250) }, { name: "Customer", value: cut(escMd(name), 200), inline: true }, { name: "Phone", value: cut(escMd(phone), 100), inline: true }],
     footer: { text: "Wanted list · staff area → Wanted" }, timestamp: w.createdAt }] } });
   return { ok: true, id: w.id };
 }
